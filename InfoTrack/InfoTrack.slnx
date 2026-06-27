@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="InfoTrack.Api/InfoTrack.Api.csproj" />
+  <Project Path="InfoTrack.Application/InfoTrack.Application.csproj" />
+  <Project Path="InfoTrack.Contracts/InfoTrack.Contracts.csproj" />
+  <Project Path="InfoTrack.Domain/InfoTrack.Domain.csproj" />
+  <Project Path="InfoTrack.Infrastructure/InfoTrack.Infrastructure.csproj" />
+  <Project Path="InfoTrack.Tests/InfoTrack.Tests.csproj" />
+</Solution>
