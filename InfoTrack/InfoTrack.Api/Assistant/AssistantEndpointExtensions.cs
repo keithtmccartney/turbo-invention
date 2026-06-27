@@ -29,7 +29,7 @@ public static class AssistantEndpointExtensions
                     : Results.Ok(payload);
             })
             .WithName("ChatWithAssistant")
-            .WithSummary("Ask natural-language questions about conveyancing solicitor data via LM Studio and MCP tools.");
+            .WithSummary("Ask natural-language questions about conveyancing solicitor data via a local LLM and MCP tools.");
 
         return group;
     }

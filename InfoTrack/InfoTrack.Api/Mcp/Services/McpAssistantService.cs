@@ -7,12 +7,12 @@ using Microsoft.Extensions.Options;
 namespace InfoTrack.Api.Mcp.Services;
 
 /// <summary>
-/// Orchestrates natural-language queries via LM Studio, using MCP tools to fetch live solicitor data.
+/// Orchestrates natural-language queries via a local OpenAI-compatible LLM, using MCP tools to fetch live solicitor data.
 /// </summary>
 public sealed class McpAssistantService(
-    ILmStudioChatClient lmStudioChatClient,
+    ILocalLlmChatClient localLlmChatClient,
     IMcpToolRegistry toolRegistry,
-    IOptions<LmStudioOptions> lmStudioOptions,
+    IOptions<LocalLlmOptions> localLlmOptions,
     ILogger<McpAssistantService> logger) : IMcpAssistantService
 {
     public const string SystemPrompt =
@@ -34,11 +34,11 @@ public sealed class McpAssistantService(
         McpAssistantRequest request,
         CancellationToken cancellationToken = default)
     {
-        var options = lmStudioOptions.Value;
+        var options = localLlmOptions.Value;
         if (!options.Enabled)
         {
             return new McpAssistantResponse(
-                "LM Studio integration is disabled. Set LmStudio:Enabled to true and ensure LM Studio is running.",
+                "Local LLM integration is disabled. Set LocalLlm:Enabled to true and ensure your model server is running.",
                 [],
                 IsError: true);
         }
@@ -57,7 +57,7 @@ public sealed class McpAssistantService(
         {
             for (var round = 0; round < options.MaxToolRounds; round++)
             {
-                var completion = await lmStudioChatClient.CreateChatCompletionAsync(
+                var completion = await localLlmChatClient.CreateChatCompletionAsync(
                     new OpenAiChatCompletionRequest
                     {
                         Model = options.Model,
@@ -70,7 +70,7 @@ public sealed class McpAssistantService(
                 var choice = completion.Choices.FirstOrDefault()?.Message;
                 if (choice is null)
                 {
-                    return new McpAssistantResponse("LM Studio returned no assistant message.", toolsInvoked, IsError: true);
+                    return new McpAssistantResponse("The local LLM returned no assistant message.", toolsInvoked, IsError: true);
                 }
 
                 if (choice.ToolCalls is not { Count: > 0 })
@@ -98,7 +98,7 @@ public sealed class McpAssistantService(
                     toolsInvoked.Add(toolName);
 
                     logger.LogInformation(
-                        "LM Studio requested MCP tool {ToolName} (round {Round})",
+                        "Local LLM requested MCP tool {ToolName} (round {Round})",
                         toolName,
                         round + 1);
 
@@ -123,9 +123,9 @@ public sealed class McpAssistantService(
         }
         catch (HttpRequestException ex)
         {
-            logger.LogError(ex, "LM Studio request failed");
+            logger.LogError(ex, "Local LLM request failed");
             return new McpAssistantResponse(
-                $"Unable to reach LM Studio at {options.BaseUrl}. Start LM Studio, load the configured model ({options.Model}), and try again.",
+                $"Unable to reach the local LLM server at {options.BaseUrl}. Start your model server, load the configured model ({options.Model}), and try again.",
                 toolsInvoked,
                 IsError: true);
         }

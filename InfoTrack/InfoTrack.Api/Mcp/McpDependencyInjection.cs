@@ -10,13 +10,13 @@ public static class McpDependencyInjection
     public static IServiceCollection AddMcpServer(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<McpOptions>(configuration.GetSection(McpOptions.SectionName));
-        services.Configure<LmStudioOptions>(configuration.GetSection(LmStudioOptions.SectionName));
+        services.Configure<LocalLlmOptions>(configuration.GetSection(LocalLlmOptions.SectionName));
         services.AddSingleton<McpApiKeyValidator>();
         services.AddScoped<McpJsonRpcDispatcher>();
 
-        services.AddHttpClient<ILmStudioChatClient, LmStudioChatClient>((sp, client) =>
+        services.AddHttpClient<ILocalLlmChatClient, LocalLlmChatClient>((sp, client) =>
         {
-            var options = sp.GetRequiredService<IOptions<LmStudioOptions>>().Value;
+            var options = sp.GetRequiredService<IOptions<LocalLlmOptions>>().Value;
             client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds);
         });

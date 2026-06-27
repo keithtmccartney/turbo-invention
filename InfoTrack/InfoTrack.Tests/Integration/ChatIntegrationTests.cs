@@ -19,7 +19,7 @@ public sealed class ChatIntegrationTests : IClassFixture<WebApplicationFactory<P
                     configuration.AddInMemoryCollection(new Dictionary<string, string?>
                     {
                         ["Mcp:EnableAssistant"] = "true",
-                        ["LmStudio:Enabled"] = "false",
+                        ["LocalLlm:Enabled"] = "false",
                     });
                 });
             })
@@ -27,7 +27,7 @@ public sealed class ChatIntegrationTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
-    public async Task Chat_WhenLmStudioDisabled_ReturnsDisabledMessage()
+    public async Task Chat_WhenLocalLlmDisabled_ReturnsDisabledMessage()
     {
         var response = await _client.PostAsJsonAsync("/api/chat", new
         {
@@ -40,7 +40,7 @@ public sealed class ChatIntegrationTests : IClassFixture<WebApplicationFactory<P
         response.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
         var payload = await response.Content.ReadFromJsonAsync<ChatPayload>();
         payload!.IsError.Should().BeTrue();
-        payload.Reply.Should().Contain("LM Studio integration is disabled");
+        payload.Reply.Should().Contain("Local LLM integration is disabled");
     }
 
     private sealed record ChatPayload(string Reply, IReadOnlyList<string> ToolsInvoked, bool IsError);

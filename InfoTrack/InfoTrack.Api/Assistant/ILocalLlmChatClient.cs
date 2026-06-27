@@ -1,6 +1,6 @@
 namespace InfoTrack.Api.Assistant;
 
-public interface ILmStudioChatClient
+public interface ILocalLlmChatClient
 {
     Task<OpenAiChatCompletionResponse> CreateChatCompletionAsync(
         OpenAiChatCompletionRequest request,

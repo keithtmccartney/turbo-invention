@@ -13,7 +13,7 @@ public sealed class McpAssistantServiceTests
     public async Task CompleteAsync_ExecutesToolThenReturnsModelSummary()
     {
         var registry = new FakeToolRegistry();
-        var lmStudio = new FakeLmStudioChatClient([
+        var localLlm = new FakeLocalLlmChatClient([
             new OpenAiChatCompletionResponse
             {
                 Choices =
@@ -58,9 +58,9 @@ public sealed class McpAssistantServiceTests
         ]);
 
         var service = new McpAssistantService(
-            lmStudio,
+            localLlm,
             registry,
-            Options.Create(new LmStudioOptions { Enabled = true, Model = "test-model" }),
+            Options.Create(new LocalLlmOptions { Enabled = true, Model = "test-model" }),
             NullLogger<McpAssistantService>.Instance);
 
         var response = await service.CompleteAsync(
@@ -72,15 +72,15 @@ public sealed class McpAssistantServiceTests
     }
 
     [Fact]
-    public async Task CompleteAsync_WhenLmStudioUnreachable_ReturnsErrorResponse()
+    public async Task CompleteAsync_WhenLocalLlmUnreachable_ReturnsErrorResponse()
     {
         var registry = new FakeToolRegistry();
-        var lmStudio = new ThrowingLmStudioChatClient(new HttpRequestException("Connection refused"));
+        var localLlm = new ThrowingLocalLlmChatClient(new HttpRequestException("Connection refused"));
 
         var service = new McpAssistantService(
-            lmStudio,
+            localLlm,
             registry,
-            Options.Create(new LmStudioOptions
+            Options.Create(new LocalLlmOptions
             {
                 Enabled = true,
                 Model = "test-model",
@@ -100,7 +100,7 @@ public sealed class McpAssistantServiceTests
     public async Task CompleteAsync_IgnoresUiIntroBeforeFirstUserMessage()
     {
         var registry = new FakeToolRegistry();
-        var lmStudio = new CapturingLmStudioChatClient(
+        var localLlm = new CapturingLocalLlmChatClient(
             new OpenAiChatCompletionResponse
             {
                 Choices =
@@ -114,9 +114,9 @@ public sealed class McpAssistantServiceTests
             });
 
         var service = new McpAssistantService(
-            lmStudio,
+            localLlm,
             registry,
-            Options.Create(new LmStudioOptions { Enabled = true, Model = "test-model" }),
+            Options.Create(new LocalLlmOptions { Enabled = true, Model = "test-model" }),
             NullLogger<McpAssistantService>.Instance);
 
         await service.CompleteAsync(new McpAssistantRequest(
@@ -125,13 +125,13 @@ public sealed class McpAssistantServiceTests
             new McpAssistantMessage("user", "How many firms?"),
         ]));
 
-        lmStudio.LastRequest!.Messages.Should().NotContain(message =>
+        localLlm.LastRequest!.Messages.Should().NotContain(message =>
             message.Role == "assistant" && message.Content!.Contains("Welcome"));
-        lmStudio.LastRequest.Messages.Should().Contain(message =>
+        localLlm.LastRequest.Messages.Should().Contain(message =>
             message.Role == "user" && message.Content == "How many firms?");
     }
 
-    private sealed class CapturingLmStudioChatClient(OpenAiChatCompletionResponse response) : ILmStudioChatClient
+    private sealed class CapturingLocalLlmChatClient(OpenAiChatCompletionResponse response) : ILocalLlmChatClient
     {
         public OpenAiChatCompletionRequest? LastRequest { get; private set; }
 
@@ -158,7 +158,7 @@ public sealed class McpAssistantServiceTests
             Task.FromResult(McpToolExecutionResult.Success("{\"totalFirms\":12,\"locationsSearched\":2}"));
     }
 
-    private sealed class ThrowingLmStudioChatClient(Exception exception) : ILmStudioChatClient
+    private sealed class ThrowingLocalLlmChatClient(Exception exception) : ILocalLlmChatClient
     {
         public Task<OpenAiChatCompletionResponse> CreateChatCompletionAsync(
             OpenAiChatCompletionRequest request,
@@ -166,7 +166,7 @@ public sealed class McpAssistantServiceTests
             Task.FromException<OpenAiChatCompletionResponse>(exception);
     }
 
-    private sealed class FakeLmStudioChatClient(IReadOnlyList<OpenAiChatCompletionResponse> responses) : ILmStudioChatClient
+    private sealed class FakeLocalLlmChatClient(IReadOnlyList<OpenAiChatCompletionResponse> responses) : ILocalLlmChatClient
     {
         private int _index;
 
@@ -176,7 +176,7 @@ public sealed class McpAssistantServiceTests
         {
             if (_index >= responses.Count)
             {
-                throw new InvalidOperationException("No more fake LM Studio responses configured.");
+                throw new InvalidOperationException("No more fake local LLM responses configured.");
             }
 
             return Task.FromResult(responses[_index++]);

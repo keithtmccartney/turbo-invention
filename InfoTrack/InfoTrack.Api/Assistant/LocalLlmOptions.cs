@@ -1,8 +1,8 @@
 namespace InfoTrack.Api.Assistant;
 
-public sealed class LmStudioOptions
+public sealed class LocalLlmOptions
 {
-    public const string SectionName = "LmStudio";
+    public const string SectionName = "LocalLlm";
 
     public bool Enabled { get; init; } = true;
 
