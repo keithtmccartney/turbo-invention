@@ -1,5 +1,6 @@
 using InfoTrack.Contracts.Solicitors;
 using InfoTrack.Domain.Repositories;
+using InfoTrack.Domain.Scraping;
 
 namespace InfoTrack.Application.Features.Scraping.GetResults;
 
@@ -26,13 +27,13 @@ public sealed class GetResultsHandler(
     private static SolicitorDto Map(Domain.Entities.Solicitor solicitor) =>
         new(
             solicitor.Id,
-            solicitor.FirmName,
+            ScrapedTextNormalizer.Normalize(solicitor.FirmName) ?? solicitor.FirmName,
             solicitor.Location?.Name ?? "Unknown",
-            solicitor.Phone,
-            solicitor.Address,
+            ScrapedTextNormalizer.Normalize(solicitor.Phone),
+            ScrapedTextNormalizer.Normalize(solicitor.Address),
             solicitor.Website,
             solicitor.EmailEnquiryUrl,
-            solicitor.Description,
+            ScrapedTextNormalizer.Normalize(solicitor.Description),
             solicitor.Rating,
             solicitor.ReviewCount);
 }

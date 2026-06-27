@@ -33,7 +33,7 @@ watch(
     if (name === 'discovery') {
       void store.loadDiscovery()
     }
-    if (name === 'locations' && !store.locations.length) {
+    if (name === 'locations') {
       void store.loadLocations()
     }
     if (name === 'results' && !store.results) {

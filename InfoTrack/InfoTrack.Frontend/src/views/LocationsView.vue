@@ -12,11 +12,15 @@ const selectedLocationIds = ref(new Set<string>())
 
 let syncing = false
 
-const activeLocations = computed(() =>
-  store.locations
-    .filter(x => x.isActive)
+const locationItems = computed(() =>
+  [...store.locations]
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'accent' }))
     .map(x => ({ id: x.id, label: x.name })),
 )
+
+function sortNames(names: string[]) {
+  return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'accent' }))
+}
 
 const locationById = computed(() => new Map(store.locations.map(location => [location.id, location])))
 
@@ -35,18 +39,6 @@ function draftContainsName(name: string) {
   return parseDraftNames().some(line => namesMatch(line, name))
 }
 
-function removeNameFromDraft(name: string) {
-  const names = parseDraftNames().filter(line => !namesMatch(line, name))
-  draft.value = names.join('\n')
-}
-
-function addNameToDraft(name: string) {
-  if (draftContainsName(name)) return
-
-  const names = parseDraftNames()
-  draft.value = names.length ? `${names.join('\n')}\n${name}` : name
-}
-
 function setsEqual(a: Set<string>, b: Set<string>) {
   return a.size === b.size && [...a].every(id => b.has(id))
 }
@@ -57,10 +49,9 @@ function syncSelectionFromDraft() {
   syncing = true
 
   const next = new Set<string>()
-  for (const item of activeLocations.value) {
-    const location = locationById.value.get(item.id)
-    if (location && draftContainsName(location.name)) {
-      next.add(item.id)
+  for (const location of store.locations) {
+    if (draftContainsName(location.name)) {
+      next.add(location.id)
     }
   }
 
@@ -76,18 +67,22 @@ function syncDraftFromSelection() {
 
   syncing = true
 
-  for (const item of activeLocations.value) {
-    const location = locationById.value.get(item.id)
-    if (!location) continue
+  let names = parseDraftNames()
 
-    const selected = selectedLocationIds.value.has(item.id)
-    const inDraft = draftContainsName(location.name)
+  for (const location of store.locations) {
+    const selected = selectedLocationIds.value.has(location.id)
+    const inDraft = names.some(line => namesMatch(line, location.name))
 
     if (selected && !inDraft) {
-      addNameToDraft(location.name)
+      names.push(location.name)
     } else if (!selected && inDraft) {
-      removeNameFromDraft(location.name)
+      names = names.filter(line => !namesMatch(line, location.name))
     }
+  }
+
+  const next = sortNames(names).join('\n')
+  if (next !== draft.value) {
+    draft.value = next
   }
 
   syncing = false
@@ -96,10 +91,11 @@ function syncDraftFromSelection() {
 function applyStoreLocations() {
   syncing = true
 
-  draft.value = store.locations
-    .filter(x => x.isActive)
-    .map(x => x.name)
-    .join('\n')
+  draft.value = sortNames(
+    store.locations
+      .filter(x => x.isActive)
+      .map(x => x.name),
+  ).join('\n')
 
   selectedLocationIds.value = new Set(
     store.locations.filter(x => x.isActive).map(x => x.id),
@@ -124,25 +120,31 @@ async function save() {
   <section class="page">
     <PanelGroupControls />
 
-    <Panel title="Scrape locations" :searchable="false" onboarding-target="locations-scrape">
-      <p class="muted">
-        Edit the list of cities searched during each scrape. One location per line. Changes in Current configuration are reflected here automatically.
-      </p>
-      <textarea v-model="draft" rows="12" class="location-editor" />
-      <div class="actions">
-        <button class="primary" @click="save">Save locations</button>
+    <div class="grid two locations-grid">
+      <div class="grid-two__col">
+        <Panel title="Scrape locations" :searchable="false" onboarding-target="locations-scrape">
+          <p class="muted">
+            Edit the list of cities searched during each scrape. One location per line. Changes in Current configuration are reflected here automatically.
+          </p>
+          <textarea v-model="draft" rows="12" class="location-editor" />
+          <div class="actions">
+            <button class="primary" @click="save">Save locations</button>
+          </div>
+        </Panel>
       </div>
-    </Panel>
 
-    <Panel title="Current configuration" onboarding-target="locations-config" v-slot="{ searchQuery }">
-      <SelectableChipList
-        v-model:selected-ids="selectedLocationIds"
-        :items="filterBySearch(activeLocations, searchQuery)"
-        :exclusive-click="Boolean(searchQuery.trim())"
-      />
-      <p v-if="searchQuery.trim() && !filterBySearch(activeLocations, searchQuery).length" class="muted">
-        No locations match your search.
-      </p>
-    </Panel>
+      <div class="grid-two__col">
+        <Panel title="Current configuration" onboarding-target="locations-config" v-slot="{ searchQuery }">
+          <SelectableChipList
+            v-model:selected-ids="selectedLocationIds"
+            :items="filterBySearch(locationItems, searchQuery)"
+            :exclusive-click="Boolean(searchQuery.trim())"
+          />
+          <p v-if="searchQuery.trim() && !filterBySearch(locationItems, searchQuery).length" class="muted">
+            No locations match your search.
+          </p>
+        </Panel>
+      </div>
+    </div>
   </section>
 </template>

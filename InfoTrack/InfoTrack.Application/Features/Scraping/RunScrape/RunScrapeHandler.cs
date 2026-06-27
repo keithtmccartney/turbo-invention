@@ -6,11 +6,17 @@ namespace InfoTrack.Application.Features.Scraping.RunScrape;
 
 public sealed class RunScrapeHandler(
     IScrapeOrchestrator scrapeOrchestrator,
+    ILocationRepository locationRepository,
     IScrapeSnapshotRepository snapshotRepository,
     IInsightSummaryRepository insightSummaryRepository)
 {
     public async Task<ScrapeResponse> HandleAsync(CancellationToken cancellationToken = default)
     {
+        if (await locationRepository.GetActiveCountAsync(cancellationToken) == 0)
+        {
+            throw new ArgumentException("No active locations configured. Add locations on the Locations page before running a scrape.");
+        }
+
         var snapshotId = await scrapeOrchestrator.RunAsync(cancellationToken);
         var snapshot = await snapshotRepository.GetByIdWithEntriesAsync(snapshotId, cancellationToken)
             ?? throw new InvalidOperationException("Scrape snapshot was not persisted.");

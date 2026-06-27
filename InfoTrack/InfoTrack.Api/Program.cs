@@ -1,3 +1,6 @@
+using InfoTrack.Api.Assistant;
+using InfoTrack.Api.Mcp;
+using InfoTrack.Api.Mcp.OpenApi;
 using InfoTrack.Application;
 using InfoTrack.Application.Features.Discovery.GetDiscoveryHistory;
 using InfoTrack.Application.Features.Discovery.GetDiscoverySummary;
@@ -21,6 +24,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "InfoTrack Solicitor Intelligence API", Version = "v1" });
+    options.DocumentFilter<McpToolDocumentFilter>();
 });
 
 builder.Services.AddCors(options =>
@@ -33,6 +37,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
+builder.Services.AddMcpServer(builder.Configuration);
 
 var app = builder.Build();
 
@@ -112,7 +117,19 @@ api.MapGet("/discovery/runs", async (int? take, GetDiscoveryHistoryHandler handl
     .WithSummary("Returns discovery run history.");
 
 api.MapPost("/scrape", async (RunScrapeHandler handler, CancellationToken ct) =>
-    Results.Ok(await handler.HandleAsync(ct)))
+{
+    try
+    {
+        return Results.Ok(await handler.HandleAsync(ct));
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            [""] = [ex.Message]
+        });
+    }
+})
     .WithName("RunScrape")
     .WithSummary("Scrapes solicitor listings for all active locations and generates analytics.");
 
@@ -134,6 +151,10 @@ api.MapGet("/insights/compare", async (
     Results.Ok(await handler.HandleAsync(currentSnapshotId, previousSnapshotId, ct)))
     .WithName("CompareSnapshots")
     .WithSummary("Compares two scrape snapshots and returns delta analytics.");
+
+api.MapAssistantEndpoints();
+
+app.MapMcpEndpoints();
 
 app.Run();
 

@@ -43,3 +43,18 @@ export const insightsApi = {
       })
       .then(r => r.data),
 }
+
+export type ChatMessageDto = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type ChatResponseDto = {
+  reply: string
+  toolsInvoked: string[]
+}
+
+export const chatApi = {
+  send: (messages: ChatMessageDto[]) =>
+    api.post<ChatResponseDto>('/chat', { messages }).then(r => r.data),
+}

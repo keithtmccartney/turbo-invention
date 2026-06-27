@@ -1,7 +1,9 @@
 using InfoTrack.Application.Features.Discovery.GetDiscoverySummary;
 using InfoTrack.Contracts.Discovery;
 using InfoTrack.Contracts.Insights;
+using InfoTrack.Contracts.Scraping;
 using InfoTrack.Domain.Analytics;
+using InfoTrack.Domain.Entities;
 using InfoTrack.Domain.Repositories;
 
 namespace InfoTrack.Application.Features.Insights.GetDashboard;
@@ -14,15 +16,16 @@ public sealed class GetDashboardHandler(
     public async Task<DashboardResponse> HandleAsync(CancellationToken cancellationToken = default)
     {
         var discovery = await discoverySummaryHandler.HandleAsync(cancellationToken: cancellationToken);
+        var scrapeHistory = await LoadScrapeHistoryAsync(cancellationToken);
         var context = await BuildContextAsync(cancellationToken);
 
         if (context is null)
         {
-            return EmptyDashboard(discovery);
+            return EmptyDashboard(discovery, scrapeHistory);
         }
 
         var dashboard = analyticsEngine.BuildDashboard(context);
-        return Map(dashboard, discovery);
+        return Map(dashboard, discovery, scrapeHistory);
     }
 
     internal async Task<AnalyticsContext?> BuildContextAsync(CancellationToken cancellationToken)
@@ -67,7 +70,30 @@ public sealed class GetDashboardHandler(
         return new ScrapeSnapshotContext(snapshot.Id, snapshot.ScrapedAt, records);
     }
 
-    private static DashboardResponse EmptyDashboard(DiscoverySummaryDto discovery) =>
+    private async Task<IReadOnlyList<ScrapeRunSummaryDto>> LoadScrapeHistoryAsync(CancellationToken cancellationToken)
+    {
+        var snapshots = await snapshotRepository.GetHistoryAsync(cancellationToken: cancellationToken);
+        return snapshots
+            .Select(MapScrapeRun)
+            .OrderBy(x => x.ScrapedAt)
+            .ToList();
+    }
+
+    private static ScrapeRunSummaryDto MapScrapeRun(ScrapeSnapshot snapshot)
+    {
+        var locationNames = snapshot.Entries
+            .Where(entry => entry.Location is not null)
+            .Select(entry => entry.Location!.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new ScrapeRunSummaryDto(snapshot.ScrapedAt, locationNames, snapshot.TotalFirms);
+    }
+
+    private static DashboardResponse EmptyDashboard(
+        DiscoverySummaryDto discovery,
+        IReadOnlyList<ScrapeRunSummaryDto> scrapeHistory) =>
         new(
             0,
             0,
@@ -78,12 +104,16 @@ public sealed class GetDashboardHandler(
             [],
             [],
             [],
+            scrapeHistory.LastOrDefault()?.ScrapedAt,
             null,
             null,
-            null,
+            scrapeHistory,
             discovery);
 
-    private static DashboardResponse Map(DashboardSummary dashboard, DiscoverySummaryDto discovery) =>
+    private static DashboardResponse Map(
+        DashboardSummary dashboard,
+        DiscoverySummaryDto discovery,
+        IReadOnlyList<ScrapeRunSummaryDto> scrapeHistory) =>
         new(
             dashboard.TotalFirms,
             dashboard.LocationsSearched,
@@ -105,5 +135,6 @@ public sealed class GetDashboardHandler(
             dashboard.LastScrapedAt,
             dashboard.CurrentSnapshotId,
             dashboard.PreviousSnapshotId,
+            scrapeHistory,
             discovery);
 }

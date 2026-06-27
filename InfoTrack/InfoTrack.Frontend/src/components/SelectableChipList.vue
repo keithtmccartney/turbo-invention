@@ -15,6 +15,7 @@ const selectedIds = defineModel<Set<string>>('selectedIds', { default: () => new
 
 const surfaceRef = useTemplateRef<HTMLDivElement>('surface')
 const chipElements = ref(new Map<string, HTMLElement>())
+const marqueeBoundaryPanel = ref<HTMLElement | null>(null)
 
 const marquee = ref<{ left: number; top: number; width: number; height: number } | null>(null)
 const previewIds = ref<Set<string>>(new Set())
@@ -26,8 +27,7 @@ const autoScrollEdgePx = 80
 const autoScrollMaxSpeedPx = 16
 
 let pointerOriginClient: { x: number; y: number } | null = null
-let originPage: { x: number; y: number } | null = null
-let currentPage: { x: number; y: number } | null = null
+let originLocal: { x: number; y: number } | null = null
 let pendingChipId: string | null = null
 let pointerMoved = false
 let activePointerId: number | null = null
@@ -39,7 +39,7 @@ let autoScrollRafId: number | null = null
 
 const displaySelectedIds = computed(() => (marqueeActive.value ? previewIds.value : selectedIds.value))
 
-const fixedMarqueeStyle = computed(() => {
+const marqueeStyle = computed(() => {
   if (!marquee.value) {
     return {}
   }
@@ -51,6 +51,24 @@ const fixedMarqueeStyle = computed(() => {
     height: `${marquee.value.height}px`,
   }
 })
+
+function resolveMarqueeBoundaryPanel() {
+  return surfaceRef.value?.closest<HTMLElement>('.panel') ?? null
+}
+
+function setMarqueeBoundaryActive(active: boolean) {
+  if (active) {
+    if (!marqueeBoundaryPanel.value) {
+      marqueeBoundaryPanel.value = resolveMarqueeBoundaryPanel()
+    }
+
+    marqueeBoundaryPanel.value?.classList.add('panel--marquee-active')
+    return
+  }
+
+  marqueeBoundaryPanel.value?.classList.remove('panel--marquee-active')
+  marqueeBoundaryPanel.value = null
+}
 
 function setChipElement(id: string, element: HTMLElement | null) {
   if (element) {
@@ -128,58 +146,100 @@ function rectsIntersect(a: DOMRect, b: DOMRect) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 }
 
-function pointerPageCoords(clientX: number, clientY: number) {
+function elementClientRect(element: HTMLElement) {
+  return element.getBoundingClientRect()
+}
+
+function getMarqueeBoundaryClientRect() {
+  const surface = surfaceRef.value
+  if (!surface) return null
+
+  const boundary = surface.closest<HTMLElement>('.panel') ?? surface
+  return elementClientRect(boundary)
+}
+
+function clientToBoundaryLocal(clientX: number, clientY: number, boundaryRect: DOMRect) {
   return {
-    x: clientX + window.scrollX,
-    y: clientY + window.scrollY,
+    x: Math.min(Math.max(clientX - boundaryRect.left, 0), boundaryRect.width),
+    y: Math.min(Math.max(clientY - boundaryRect.top, 0), boundaryRect.height),
   }
 }
 
-function elementPageRect(element: HTMLElement) {
-  const client = element.getBoundingClientRect()
-  return new DOMRect(
-    client.left + window.scrollX,
-    client.top + window.scrollY,
-    client.width,
-    client.height,
-  )
-}
+type LocalRect = { left: number; top: number; width: number; height: number }
 
-function getMarqueePageRect() {
-  if (!originPage || !currentPage) return null
+function getMarqueeLocalRect(): LocalRect | null {
+  if (originLocal === null) return null
 
-  const left = Math.min(originPage.x, currentPage.x)
-  const top = Math.min(originPage.y, currentPage.y)
+  const boundaryRect = getMarqueeBoundaryClientRect()
+  if (!boundaryRect || boundaryRect.width <= 0 || boundaryRect.height <= 0) return null
 
-  return new DOMRect(
+  const current = clientToBoundaryLocal(lastPointerClientX, lastPointerClientY, boundaryRect)
+
+  let left = Math.min(originLocal.x, current.x)
+  let top = Math.min(originLocal.y, current.y)
+  let right = Math.max(originLocal.x, current.x)
+  let bottom = Math.max(originLocal.y, current.y)
+
+  left = Math.max(0, left)
+  top = Math.max(0, top)
+  right = Math.min(boundaryRect.width, right)
+  bottom = Math.min(boundaryRect.height, bottom)
+
+  if (right <= left) {
+    right = Math.min(left + 1, boundaryRect.width)
+  }
+
+  if (bottom <= top) {
+    bottom = Math.min(top + 1, boundaryRect.height)
+  }
+
+  if (right <= left || bottom <= top) {
+    return null
+  }
+
+  return {
     left,
     top,
-    Math.max(Math.abs(currentPage.x - originPage.x), 1),
-    Math.max(Math.abs(currentPage.y - originPage.y), 1),
+    width: right - left,
+    height: bottom - top,
+  }
+}
+
+function localRectToClient(local: LocalRect, boundaryRect: DOMRect) {
+  return new DOMRect(
+    boundaryRect.left + local.left,
+    boundaryRect.top + local.top,
+    local.width,
+    local.height,
   )
 }
 
-function updateCurrentPageFromPointer(pageX: number, pageY: number) {
-  currentPage = { x: pageX, y: pageY }
+function getMarqueeClientRect() {
+  const boundaryRect = getMarqueeBoundaryClientRect()
+  const local = getMarqueeLocalRect()
+  if (!local || !boundaryRect) return null
+
+  return localRectToClient(local, boundaryRect)
 }
 
 function syncMarquee() {
-  const pageRect = getMarqueePageRect()
-  if (!pageRect) return
+  const boundaryRect = getMarqueeBoundaryClientRect()
+  const local = getMarqueeLocalRect()
+  if (!local || !boundaryRect) return
 
   marquee.value = {
-    left: pageRect.left - window.scrollX,
-    top: pageRect.top - window.scrollY,
-    width: pageRect.width,
-    height: pageRect.height,
+    left: boundaryRect.left + local.left,
+    top: boundaryRect.top + local.top,
+    width: local.width,
+    height: local.height,
   }
 
   updateMarqueePreview()
 }
 
 function getMarqueeHitIds() {
-  const marqueeRect = getMarqueePageRect()
-  if (!marqueeRect) return new Set<string>()
+  const marqueeRect = getMarqueeClientRect()
+  if (!marqueeRect || marqueeRect.width <= 0 || marqueeRect.height <= 0) return new Set<string>()
 
   const hitIds = new Set<string>()
 
@@ -187,12 +247,16 @@ function getMarqueeHitIds() {
     const element = chipElements.value.get(item.id)
     if (!element) continue
 
-    if (rectsIntersect(elementPageRect(element), marqueeRect)) {
+    if (rectsIntersect(elementClientRect(element), marqueeRect)) {
       hitIds.add(item.id)
     }
   }
 
   return hitIds
+}
+
+function setsEqual(a: Set<string>, b: Set<string>) {
+  return a.size === b.size && [...a].every(id => b.has(id))
 }
 
 function updateMarqueePreview() {
@@ -207,7 +271,9 @@ function updateMarqueePreview() {
     }
   }
 
-  previewIds.value = preview
+  if (!setsEqual(preview, previewIds.value)) {
+    previewIds.value = preview
+  }
 }
 
 function chipFromTarget(target: EventTarget | null) {
@@ -216,9 +282,9 @@ function chipFromTarget(target: EventTarget | null) {
 
 function resetDragState() {
   stopAutoScroll()
+  setMarqueeBoundaryActive(false)
   pointerOriginClient = null
-  originPage = null
-  currentPage = null
+  originLocal = null
   pendingChipId = null
   pointerMoved = false
   activePointerId = null
@@ -226,11 +292,6 @@ function resetDragState() {
   marquee.value = null
   previewIds.value = new Set()
   marqueeBaseSelection = new Set()
-}
-
-function syncCurrentPageFromClientPointer() {
-  const page = pointerPageCoords(lastPointerClientX, lastPointerClientY)
-  updateCurrentPageFromPointer(page.x, page.y)
 }
 
 function scrollDeltaForRegion(clientY: number, regionTop: number, regionBottom: number) {
@@ -250,6 +311,42 @@ function scrollDeltaForRegion(clientY: number, regionTop: number, regionBottom: 
   return 0
 }
 
+function performAutoScroll() {
+  const clientY = lastPointerClientY
+  let scrolled = false
+
+  if (document.documentElement.scrollHeight > document.documentElement.clientHeight + 1) {
+    const delta = scrollDeltaForRegion(clientY, 0, window.innerHeight)
+    if (delta !== 0) {
+      const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+      const clamped = Math.min(Math.max(window.scrollY + delta, 0), maxScroll)
+
+      if (clamped !== window.scrollY) {
+        window.scrollTo({ top: clamped })
+        scrolled = true
+      }
+    }
+  }
+
+  for (const container of scrollableAncestors()) {
+    if (marqueeBoundaryPanel.value && !container.contains(marqueeBoundaryPanel.value)) continue
+
+    const rect = container.getBoundingClientRect()
+    const delta = scrollDeltaForRegion(clientY, rect.top, rect.bottom)
+    if (delta === 0) continue
+
+    const maxScroll = Math.max(0, container.scrollHeight - container.clientHeight)
+    const clamped = Math.min(Math.max(container.scrollTop + delta, 0), maxScroll)
+
+    if (clamped !== container.scrollTop) {
+      container.scrollTop = clamped
+      scrolled = true
+    }
+  }
+
+  return scrolled
+}
+
 function scrollableAncestors() {
   const containers: HTMLElement[] = []
   let node = surfaceRef.value?.parentElement ?? null
@@ -265,37 +362,16 @@ function scrollableAncestors() {
   return containers
 }
 
-function performAutoScroll() {
-  const clientY = lastPointerClientY
-
-  const documentScrollable =
-    document.documentElement.scrollHeight > document.documentElement.clientHeight + 1
-
-  if (documentScrollable) {
-    const delta = scrollDeltaForRegion(clientY, 0, window.innerHeight)
-    if (delta !== 0) {
-      window.scrollBy(0, delta)
-    }
-  }
-
-  for (const container of scrollableAncestors()) {
-    const rect = container.getBoundingClientRect()
-    const delta = scrollDeltaForRegion(clientY, rect.top, rect.bottom)
-    if (delta !== 0) {
-      container.scrollTop += delta
-    }
-  }
-}
-
 function autoScrollStep() {
   if (!marqueeActive.value) {
     stopAutoScroll()
     return
   }
 
-  performAutoScroll()
-  syncCurrentPageFromClientPointer()
-  syncMarquee()
+  if (performAutoScroll()) {
+    syncMarquee()
+  }
+
   autoScrollRafId = requestAnimationFrame(autoScrollStep)
 }
 
@@ -341,14 +417,14 @@ function onDocumentPointerMove(event: PointerEvent) {
 
   pointerMoved = true
   marqueeActive.value = true
+  setMarqueeBoundaryActive(true)
   pendingChipId = null
   startAutoScroll()
 
-  updateCurrentPageFromPointer(event.pageX, event.pageY)
   syncMarquee()
-  performAutoScroll()
-  syncCurrentPageFromClientPointer()
-  syncMarquee()
+  if (performAutoScroll()) {
+    syncMarquee()
+  }
   event.preventDefault()
 }
 
@@ -395,13 +471,16 @@ function onPointerDown(event: PointerEvent) {
     x: event.clientX,
     y: event.clientY,
   }
-  originPage = { x: event.pageX, y: event.pageY }
-  currentPage = { x: event.pageX, y: event.pageY }
+  const boundaryRect = getMarqueeBoundaryClientRect()
+  originLocal = boundaryRect
+    ? clientToBoundaryLocal(event.clientX, event.clientY, boundaryRect)
+    : { x: event.clientX, y: event.clientY }
   lastPointerClientX = event.clientX
   lastPointerClientY = event.clientY
   pendingChipId = chip?.dataset.chipId ?? null
   pointerMoved = false
   activePointerId = event.pointerId
+  marqueeBoundaryPanel.value = resolveMarqueeBoundaryPanel()
   marqueeActive.value = false
   marquee.value = null
   marqueeBaseSelection = new Set(selectedIds.value)
@@ -413,21 +492,43 @@ function onPointerDown(event: PointerEvent) {
 
 onUnmounted(() => {
   stopAutoScroll()
+  setMarqueeBoundaryActive(false)
   detachDocumentListeners()
 })
 
 const selectedCount = computed(() => selectedIds.value.size)
+
+function selectAll() {
+  selectedIds.value = new Set(props.items.map(item => item.id))
+  anchorIndex.value = -1
+}
+
+function selectNone() {
+  selectedIds.value = new Set()
+  anchorIndex.value = -1
+}
 </script>
 
 <template>
   <div class="selectable-chip-list">
-    <p v-if="items.length" class="selectable-chip-list__hint muted">
-      Click to select or deselect. Shift+click a range from the anchor. Ctrl+click to add or remove. Drag to toggle chips in the selection area.
-      <span v-if="selectedCount">({{ selectedCount }} selected)</span>
-    </p>
+    <div v-if="items.length" class="selectable-chip-list__hint-row">
+      <p class="selectable-chip-list__hint muted">
+        Click to select or deselect. Shift+click a range from the anchor. Ctrl+click to add or remove. Drag to toggle chips in the selection area.
+        <span v-if="selectedCount">({{ selectedCount }} selected)</span>
+      </p>
+      <div class="selectable-chip-list__bulk-actions">
+        <button type="button" class="selectable-chip-list__bulk-action" @click="selectAll">
+          All
+        </button>
+        <span class="selectable-chip-list__bulk-separator" aria-hidden="true">·</span>
+        <button type="button" class="selectable-chip-list__bulk-action" @click="selectNone">
+          None
+        </button>
+      </div>
+    </div>
 
     <div
-      ref="surfaceRef"
+      ref="surface"
       class="selectable-chip-list__surface"
       :class="{ 'selectable-chip-list__surface--dragging': marqueeActive }"
       @pointerdown="onPointerDown"
@@ -450,7 +551,7 @@ const selectedCount = computed(() => selectedIds.value.size)
       <div
         v-if="marqueeActive && marquee"
         class="selectable-chip-list__marquee"
-        :style="fixedMarqueeStyle"
+        :style="marqueeStyle"
         aria-hidden="true"
       />
     </Teleport>

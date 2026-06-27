@@ -191,12 +191,7 @@ public sealed partial class SolicitorsHtmlParser(ILogger<SolicitorsHtmlParser> l
     private static string StripTags(string input) => TagRegex().Replace(input, string.Empty);
 
     private static string HtmlDecode(string input) =>
-        input
-            .Replace("&amp;", "&", StringComparison.OrdinalIgnoreCase)
-            .Replace("&quot;", "\"", StringComparison.OrdinalIgnoreCase)
-            .Replace("&#39;", "'", StringComparison.OrdinalIgnoreCase)
-            .Replace("&lt;", "<", StringComparison.OrdinalIgnoreCase)
-            .Replace("&gt;", ">", StringComparison.OrdinalIgnoreCase);
+        ScrapedTextNormalizer.Normalize(input) ?? string.Empty;
 
     private static string CleanWhitespace(string input) =>
         WhitespaceRegex().Replace(input, " ").Trim();

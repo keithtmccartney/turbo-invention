@@ -12,6 +12,7 @@ const items = [
   { name: "locations", label: "Locations" },
   { name: "results", label: "Results" },
   { name: "insights", label: "Insights" },
+  { name: "assistant", label: "Assistant" },
 ] as const;
 
 function isActive(name: (typeof items)[number]["name"]) {
