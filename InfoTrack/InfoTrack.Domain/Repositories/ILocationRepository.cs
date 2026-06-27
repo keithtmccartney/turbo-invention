@@ -13,6 +13,10 @@ public interface ILocationRepository
 
     Task ReplaceAllAsync(IReadOnlyList<Location> locations, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Location>> SetActiveLocationsAsync(
+        IReadOnlyList<string> activeNames,
+        CancellationToken cancellationToken = default);
+
     Task<DiscoverySyncOutcome> SyncDiscoveredLocationsAsync(
         IReadOnlyList<DiscoveredLocation> discovered,
         CancellationToken cancellationToken = default);

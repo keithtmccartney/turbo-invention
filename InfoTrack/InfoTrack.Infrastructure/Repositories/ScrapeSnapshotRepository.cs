@@ -27,6 +27,14 @@ public sealed class ScrapeSnapshotRepository(InfoTrackDbContext dbContext) : ISc
             .ThenInclude(x => x.Location)
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<ScrapeSnapshot>> GetHistoryAsync(int take = 20, CancellationToken cancellationToken = default) =>
+        await dbContext.ScrapeSnapshots
+            .Include(x => x.Entries)
+            .ThenInclude(x => x.Location)
+            .OrderByDescending(x => x.ScrapedAt)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
     public async Task AddAsync(ScrapeSnapshot snapshot, CancellationToken cancellationToken = default)
     {
         await dbContext.ScrapeSnapshots.AddAsync(snapshot, cancellationToken);

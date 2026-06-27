@@ -82,6 +82,12 @@ export interface SolicitorDto {
   reviewCount?: number
 }
 
+export interface ScrapeRunSummaryDto {
+  scrapedAt: string
+  locationNames: string[]
+  totalFirms: number
+}
+
 export interface DashboardResponse {
   totalFirms: number
   locationsSearched: number
@@ -95,6 +101,7 @@ export interface DashboardResponse {
   lastScrapedAt?: string
   currentSnapshotId?: string
   previousSnapshotId?: string
+  scrapeHistory?: ScrapeRunSummaryDto[]
   discovery?: DiscoverySummaryDto
 }
 

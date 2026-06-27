@@ -25,16 +25,40 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
-    public async Task UpdateLocations_ReplacesLocationList()
+    public async Task UpdateLocations_ActivatesSelectionAndDeactivatesOthers()
     {
-        var request = new UpdateLocationsRequest(["Cardiff", "London"]);
+        await _client.PostAsJsonAsync("/api/locations", new UpdateLocationsRequest(["Cardiff", "London", "Manchester"]));
 
-        var response = await _client.PostAsJsonAsync("/api/locations", request);
+        var response = await _client.PostAsJsonAsync("/api/locations", new UpdateLocationsRequest(["Cardiff", "London"]));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var payload = await response.Content.ReadFromJsonAsync<LocationsResponse>();
+        payload!.Locations.Should().HaveCount(3);
+        payload.Locations.Where(x => x.IsActive).Select(x => x.Name).Should().BeEquivalentTo(["Cardiff", "London"]);
+        payload.Locations.Single(x => x.Name == "Manchester").IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateLocations_WithEmptySelection_DeactivatesAllLocations()
+    {
+        await _client.PostAsJsonAsync("/api/locations", new UpdateLocationsRequest(["Cardiff", "London"]));
+
+        var response = await _client.PostAsJsonAsync("/api/locations", new UpdateLocationsRequest([]));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var payload = await response.Content.ReadFromJsonAsync<LocationsResponse>();
         payload!.Locations.Should().HaveCount(2);
-        payload.Locations.Select(x => x.Name).Should().BeEquivalentTo(["Cardiff", "London"]);
+        payload.Locations.Should().OnlyContain(x => !x.IsActive);
+    }
+
+    [Fact]
+    public async Task RunScrape_WithNoActiveLocations_ReturnsBadRequest()
+    {
+        var response = await _client.PostAsync("/api/scrape", null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("No active locations configured");
     }
 
     [Fact]

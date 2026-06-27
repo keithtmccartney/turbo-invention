@@ -4,10 +4,10 @@ import { RouterView, useRoute, useRouter } from "vue-router";
 import { useAppStore } from "./stores/app";
 import { useOnboardingStore } from "./stores/onboarding";
 import { useDashboardInterstitialStore } from "./stores/dashboardInterstitial";
-import { formatDateTime } from "./utils/format";
 import ThemeToggle from "./components/ThemeToggle.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import SidebarFooter from "./components/SidebarFooter.vue";
+import HeaderHistory from "./components/HeaderHistory.vue";
 import OnboardingTour from "./components/OnboardingTour.vue";
 import DashboardInterstitial from "./components/DashboardInterstitial.vue";
 import { usePanelShortcuts } from "./composables/usePanelShortcuts";
@@ -53,6 +53,7 @@ const pageSubtitle = computed(() =>
       "Solicitor listings scraped from solicitors.com, grouped by location.",
   ),
 );
+
 </script>
 
 <template>
@@ -94,9 +95,7 @@ const pageSubtitle = computed(() =>
       <header class="content-header" aria-labelledby="page-title">
         <h1 id="page-title">{{ pageTitle }}</h1>
         <p class="subtitle">{{ pageSubtitle }}</p>
-        <div v-if="store.dashboard?.lastScrapedAt" class="meta">
-          Last scrape: {{ formatDateTime(store.dashboard.lastScrapedAt) }}
-        </div>
+        <HeaderHistory />
       </header>
 
       <div class="content-body">

@@ -1,5 +1,6 @@
+import axios from 'axios'
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { discoveryApi, insightsApi, locationsApi, scrapeApi } from '../api/client'
 import type {
   DashboardResponse,
@@ -21,6 +22,25 @@ export const useAppStore = defineStore('app', () => {
   const scraping = ref(false)
   const discovering = ref(false)
   const error = ref<string | null>(null)
+  const activeLocationCount = computed(() => locations.value.filter(location => location.isActive).length)
+  const canRunScrape = computed(() => activeLocationCount.value > 0)
+
+  function readApiErrorMessage(e: unknown, fallback: string) {
+    if (axios.isAxiosError(e)) {
+      const data = e.response?.data as {
+        title?: string
+        detail?: string
+        errors?: Record<string, string[]>
+      } | undefined
+
+      const validationMessage = data?.errors?.['']?.[0]
+      if (validationMessage) return validationMessage
+      if (data?.detail) return data.detail
+      if (data?.title && data.title !== 'One or more validation errors occurred.') return data.title
+    }
+
+    return e instanceof Error ? e.message : fallback
+  }
 
   async function loadLocations() {
     locations.value = await locationsApi.get()
@@ -72,14 +92,18 @@ export const useAppStore = defineStore('app', () => {
   }
 
   async function runScrape() {
+    if (!canRunScrape.value) {
+      error.value = 'No active locations configured. Add locations on the Locations page before running a scrape.'
+      return
+    }
+
     scraping.value = true
     error.value = null
     try {
       await scrapeApi.run()
       await Promise.all([loadDashboard(), loadResults()])
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Scrape failed'
-      throw e
+      error.value = readApiErrorMessage(e, 'Scrape failed')
     } finally {
       scraping.value = false
     }
@@ -108,6 +132,8 @@ export const useAppStore = defineStore('app', () => {
     scraping,
     discovering,
     error,
+    activeLocationCount,
+    canRunScrape,
     loadLocations,
     saveLocations,
     loadDashboard,

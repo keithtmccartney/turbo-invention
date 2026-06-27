@@ -1,5 +1,4 @@
 using InfoTrack.Contracts.Locations;
-using InfoTrack.Domain.Discovery;
 using InfoTrack.Domain.Entities;
 using InfoTrack.Domain.Repositories;
 
@@ -9,9 +8,9 @@ public sealed class UpdateLocationsHandler(ILocationRepository locationRepositor
 {
     public async Task<LocationsResponse> HandleAsync(UpdateLocationsRequest request, CancellationToken cancellationToken = default)
     {
-        if (request.Locations is null || request.Locations.Count == 0)
+        if (request.Locations is null)
         {
-            throw new ArgumentException("At least one location is required.", nameof(request));
+            throw new ArgumentException("Locations are required.", nameof(request));
         }
 
         var distinct = request.Locations
@@ -20,26 +19,7 @@ public sealed class UpdateLocationsHandler(ILocationRepository locationRepositor
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (distinct.Count == 0)
-        {
-            throw new ArgumentException("At least one valid location name is required.", nameof(request));
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        var locations = distinct
-            .Select((name, index) => new Location
-            {
-                Id = Guid.NewGuid(),
-                Name = name,
-                Slug = LocationSlug.FromName(name),
-                DisplayOrder = index,
-                IsActive = true,
-                FirstDiscoveredAt = now,
-                LastDiscoveredAt = now
-            })
-            .ToList();
-
-        await locationRepository.ReplaceAllAsync(locations, cancellationToken);
+        var locations = await locationRepository.SetActiveLocationsAsync(distinct, cancellationToken);
 
         return new LocationsResponse(
             locations.Select(Map).ToList());

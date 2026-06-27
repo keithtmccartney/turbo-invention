@@ -16,7 +16,8 @@ function toggleLegal() {
       type="button"
       class="sidebar-footer__scrape-btn"
       data-onboarding="run-scrape"
-      :disabled="store.scraping"
+      :disabled="store.scraping || !store.canRunScrape"
+      :title="store.canRunScrape ? undefined : 'Add at least one location on the Locations page before running a scrape.'"
       @click="store.runScrape()"
     >
       {{ store.scraping ? 'Scraping…' : 'Run Scrape' }}

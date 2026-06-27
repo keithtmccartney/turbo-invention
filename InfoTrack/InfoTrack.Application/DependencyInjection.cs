@@ -8,6 +8,8 @@ using InfoTrack.Application.Features.Locations.GetLocations;
 using InfoTrack.Application.Features.Locations.UpdateLocations;
 using InfoTrack.Application.Features.Scraping.GetResults;
 using InfoTrack.Application.Features.Scraping.RunScrape;
+using InfoTrack.Application.Mcp;
+using InfoTrack.Application.Mcp.Export;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace InfoTrack.Application;
@@ -26,6 +28,9 @@ public static class DependencyInjection
         services.AddScoped<GetDiscoveryHistoryHandler>();
         services.AddScoped<GetLatestDiscoveryHandler>();
         services.AddScoped<GetDiscoverySummaryHandler>();
+
+        services.AddScoped<McpResultExporter>();
+        services.AddMcpTools();
 
         return services;
     }

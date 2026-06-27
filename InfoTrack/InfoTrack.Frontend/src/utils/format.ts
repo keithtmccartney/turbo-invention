@@ -34,3 +34,16 @@ export function formatDuration(milliseconds?: number | null): string {
   const remainingSeconds = Math.round(seconds % 60)
   return `${minutes}m ${remainingSeconds}s`
 }
+
+export function decodeAssistantText(text: string): string {
+  return text
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&nbsp;?/gi, ' ')
+    .replace(/&#160;|&#xA0;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/\u00A0/g, ' ')
+}

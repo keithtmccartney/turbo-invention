@@ -13,11 +13,21 @@ export function useMainContentFocus() {
     })
   }
 
+  function shouldFocusMainContent() {
+    return router.currentRoute.value.name !== 'assistant'
+  }
+
   onMounted(() => {
-    void router.isReady().then(focusMainContent)
+    void router.isReady().then(() => {
+      if (shouldFocusMainContent()) {
+        focusMainContent()
+      }
+    })
   })
 
   router.afterEach(() => {
-    focusMainContent()
+    if (shouldFocusMainContent()) {
+      focusMainContent()
+    }
   })
 }

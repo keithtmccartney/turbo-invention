@@ -10,15 +10,13 @@ public sealed class LocationRepository(InfoTrackDbContext dbContext) : ILocation
 {
     public async Task<IReadOnlyList<Location>> GetAllAsync(CancellationToken cancellationToken = default) =>
         await dbContext.Locations
-            .OrderBy(x => x.DisplayOrder)
-            .ThenBy(x => x.Name)
+            .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Location>> GetActiveAsync(CancellationToken cancellationToken = default) =>
         await dbContext.Locations
             .Where(x => x.IsActive)
-            .OrderBy(x => x.DisplayOrder)
-            .ThenBy(x => x.Name)
+            .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
 
     public async Task<int> GetActiveCountAsync(CancellationToken cancellationToken = default) =>
@@ -30,6 +28,69 @@ public sealed class LocationRepository(InfoTrackDbContext dbContext) : ILocation
         dbContext.Locations.RemoveRange(existing);
         await dbContext.Locations.AddRangeAsync(locations, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Location>> SetActiveLocationsAsync(
+        IReadOnlyList<string> activeNames,
+        CancellationToken cancellationToken = default)
+    {
+        var distinct = activeNames
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var now = DateTimeOffset.UtcNow;
+        var existing = await dbContext.Locations.ToListAsync(cancellationToken);
+        var existingBySlug = existing.ToDictionary(x => x.Slug, StringComparer.OrdinalIgnoreCase);
+        var activeSlugs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var maxOrder = existing.Select(x => x.DisplayOrder).DefaultIfEmpty(-1).Max();
+
+        for (var index = 0; index < distinct.Count; index++)
+        {
+            var name = distinct[index];
+            var slug = LocationSlug.FromName(name);
+            activeSlugs.Add(slug);
+
+            if (existingBySlug.TryGetValue(slug, out var location))
+            {
+                if (!string.Equals(location.Name, name, StringComparison.Ordinal))
+                {
+                    location.Name = name;
+                }
+
+                location.IsActive = true;
+                location.LastDiscoveredAt = now;
+                continue;
+            }
+
+            maxOrder++;
+            var created = new Location
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                Slug = slug,
+                DisplayOrder = maxOrder,
+                IsActive = true,
+                FirstDiscoveredAt = now,
+                LastDiscoveredAt = now
+            };
+
+            await dbContext.Locations.AddAsync(created, cancellationToken);
+            existingBySlug[slug] = created;
+        }
+
+        foreach (var location in existing)
+        {
+            if (!activeSlugs.Contains(location.Slug))
+            {
+                location.IsActive = false;
+            }
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await GetAllAsync(cancellationToken);
     }
 
     public async Task<DiscoverySyncOutcome> SyncDiscoveredLocationsAsync(

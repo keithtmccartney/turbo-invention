@@ -1,6 +1,7 @@
 namespace InfoTrack.Contracts.Insights;
 
 using InfoTrack.Contracts.Discovery;
+using InfoTrack.Contracts.Scraping;
 
 public sealed record RegionalStatisticDto(
     string LocationName,
@@ -35,6 +36,7 @@ public sealed record DashboardResponse(
     DateTimeOffset? LastScrapedAt,
     Guid? CurrentSnapshotId,
     Guid? PreviousSnapshotId,
+    IReadOnlyList<ScrapeRunSummaryDto> ScrapeHistory,
     DiscoverySummaryDto? Discovery);
 
 public sealed record SnapshotComparisonResponse(
