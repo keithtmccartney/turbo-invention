@@ -2,7 +2,7 @@
 
 Location: **`InfoTrack/JMeter/tests/jmeter/`** (alongside `InfoTrack.Tests` for xUnit).
 
-Lightweight [Apache JMeter](https://jmeter.apache.org/) plans for the InfoTrack Solicitor Intelligence API. These are **assessment-grade** smoke and load tests — not an enterprise performance suite — intended to show that the API has been considered from a quality, concurrency, and operational perspective.
+Lightweight [Apache JMeter](https://jmeter.apache.org/) plans for the InfoTrack Solicitor Intelligence API. These are **assessment-grade** smoke and load tests — not an enterprise performance suite — which I added to show that I had considered the API from a quality, concurrency, and operational perspective.
 
 ## Prerequisites
 
@@ -342,7 +342,7 @@ No **`5xx`** responses in either case.
 
 ## Design notes
 
-- **Intentionally lightweight** — suitable for a technical assessment, not production capacity planning.
+- **Intentionally lightweight** — I kept these suitable for a technical assessment, not production capacity planning.
 - **Self-contained `.jmx` files** — each plan includes its own defaults and comments; no plugins required beyond JMeter core.
 - **Groovy assertions** (`JSR223Assertion`) used where multiple HTTP status codes are valid (scrape/discovery concurrency).
 - **Polite discovery testing** — single request; do not loop `POST /api/discovery/run` (hits external sitemap + rate limits).
