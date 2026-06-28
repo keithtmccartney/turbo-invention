@@ -21,18 +21,20 @@ public sealed class McpResultExporter(
     {
         var results = await resultsHandler.HandleAsync(cancellationToken);
         var builder = new StringBuilder();
-        builder.AppendLine("Location,FirmName,Phone,Address,Website,EmailEnquiryUrl,Rating,ReviewCount");
+        builder.AppendLine("Id,Location,FirmName,Phone,Address,Website,EmailEnquiryUrl,Description,Rating,ReviewCount");
 
         foreach (var location in results.Results)
         {
             foreach (var firm in location.Solicitors)
             {
-                builder.Append(Escape(location.LocationName)).Append(',')
+                builder.Append(Escape(firm.Id.ToString())).Append(',')
+                    .Append(Escape(location.LocationName)).Append(',')
                     .Append(Escape(firm.FirmName)).Append(',')
                     .Append(Escape(firm.Phone)).Append(',')
                     .Append(Escape(firm.Address)).Append(',')
                     .Append(Escape(firm.Website)).Append(',')
                     .Append(Escape(firm.EmailEnquiryUrl)).Append(',')
+                    .Append(Escape(firm.Description)).Append(',')
                     .Append(firm.Rating?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).Append(',')
                     .Append(firm.ReviewCount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)
                     .AppendLine();
@@ -46,18 +48,20 @@ public sealed class McpResultExporter(
     {
         var results = await resultsHandler.HandleAsync(cancellationToken);
         var builder = new StringBuilder();
-        builder.AppendLine("Location\tFirmName\tPhone\tAddress\tWebsite\tEmailEnquiryUrl\tRating\tReviewCount");
+        builder.AppendLine("Id\tLocation\tFirmName\tPhone\tAddress\tWebsite\tEmailEnquiryUrl\tDescription\tRating\tReviewCount");
 
         foreach (var location in results.Results)
         {
             foreach (var firm in location.Solicitors)
             {
-                builder.Append(location.LocationName).Append('\t')
+                builder.Append(firm.Id).Append('\t')
+                    .Append(location.LocationName).Append('\t')
                     .Append(firm.FirmName).Append('\t')
                     .Append(firm.Phone).Append('\t')
                     .Append(firm.Address).Append('\t')
                     .Append(firm.Website).Append('\t')
                     .Append(firm.EmailEnquiryUrl).Append('\t')
+                    .Append(firm.Description).Append('\t')
                     .Append(firm.Rating?.ToString(CultureInfo.InvariantCulture) ?? string.Empty).Append('\t')
                     .Append(firm.ReviewCount?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)
                     .AppendLine();

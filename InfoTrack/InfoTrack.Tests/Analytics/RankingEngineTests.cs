@@ -49,6 +49,24 @@ public sealed class RankingEngineTests
         leaderboard.Single(x => x.FirmName == "Alpha").RankChange.Should().Be(-1);
     }
 
+    [Fact]
+    public void BuildNationalLeaderboard_DeduplicatesFirmAcrossLocations()
+    {
+        var current =
+            new List<SolicitorSnapshotRecord>
+            {
+                Record("shared", "Gowen & Stevens LLP", "Carshalton", 4.5m, 160, 2),
+                Record("shared", "Gowen & Stevens LLP", "Sutton", 4.5m, 160, 5),
+                Record("other", "KT Solicitors Limited", "Carshalton", 5m, 0, 1),
+            };
+
+        var leaderboard = _engine.BuildNationalLeaderboard(current, []);
+
+        leaderboard.Should().HaveCount(2);
+        leaderboard.Should().ContainSingle(x => x.FirmName == "Gowen & Stevens LLP")
+            .Which.LocationName.Should().Be("Carshalton");
+    }
+
     private static SolicitorSnapshotRecord Record(
         string key,
         string name,
@@ -56,5 +74,5 @@ public sealed class RankingEngineTests
         decimal rating,
         int reviews,
         int rank) =>
-        new(key, name, location, Guid.NewGuid(), null, null, rating, reviews, rank);
+        new(key, name, location, Guid.NewGuid(), null, null, null, rating, reviews, rank);
 }

@@ -1,34 +1,50 @@
+using InfoTrack.Application.Features.Scraping.GetScrapeRunStatus;
+using InfoTrack.Application.Features.Scraping.StartScrape;
 using InfoTrack.Contracts.Scraping;
-using InfoTrack.Domain.Repositories;
-using InfoTrack.Domain.Scraping;
+using InfoTrack.Domain.Entities;
 
 namespace InfoTrack.Application.Features.Scraping.RunScrape;
 
+/// <summary>
+/// Waits for an asynchronous scrape operation to complete. Used by MCP tools that require a synchronous result.
+/// </summary>
 public sealed class RunScrapeHandler(
-    IScrapeOrchestrator scrapeOrchestrator,
-    ILocationRepository locationRepository,
-    IScrapeSnapshotRepository snapshotRepository,
-    IInsightSummaryRepository insightSummaryRepository)
+    StartScrapeHandler startScrapeHandler,
+    GetScrapeRunStatusHandler getScrapeRunStatusHandler)
 {
-    public async Task<ScrapeResponse> HandleAsync(CancellationToken cancellationToken = default)
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
+
+    public async Task<ScrapeResponse> HandleAsync(
+        string correlationId,
+        CancellationToken cancellationToken = default)
     {
-        if (await locationRepository.GetActiveCountAsync(cancellationToken) == 0)
+        var started = await startScrapeHandler.HandleAsync(correlationId, cancellationToken);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(DefaultTimeout);
+
+        while (!timeoutCts.IsCancellationRequested)
         {
-            throw new ArgumentException("No active locations configured. Add locations on the Locations page before running a scrape.");
+            var status = await getScrapeRunStatusHandler.HandleAsync(started.OperationId, cancellationToken);
+            if (status is null)
+            {
+                throw new InvalidOperationException($"Scrape operation {started.OperationId} was not found.");
+            }
+
+            if (status.Status == nameof(ScrapeRunStatus.Completed))
+            {
+                return status.Result
+                    ?? throw new InvalidOperationException("Completed scrape run is missing result.");
+            }
+
+            if (status.Status == nameof(ScrapeRunStatus.Failed))
+            {
+                throw new InvalidOperationException(status.ErrorMessage ?? "Scrape failed.");
+            }
+
+            await Task.Delay(PollInterval, timeoutCts.Token);
         }
 
-        var snapshotId = await scrapeOrchestrator.RunAsync(cancellationToken);
-        var snapshot = await snapshotRepository.GetByIdWithEntriesAsync(snapshotId, cancellationToken)
-            ?? throw new InvalidOperationException("Scrape snapshot was not persisted.");
-
-        var insight = await insightSummaryRepository.GetLatestAsync(cancellationToken);
-
-        return new ScrapeResponse(
-            snapshot.Id,
-            snapshot.ScrapedAt,
-            snapshot.TotalFirms,
-            snapshot.LocationsSearched,
-            insight?.NewFirms ?? 0,
-            insight?.RemovedFirms ?? 0);
+        throw new TimeoutException($"Scrape operation {started.OperationId} did not complete in time.");
     }
 }

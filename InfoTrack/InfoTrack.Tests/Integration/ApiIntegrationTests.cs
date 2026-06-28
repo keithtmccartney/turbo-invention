@@ -3,15 +3,14 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using InfoTrack.Contracts.Discovery;
 using InfoTrack.Contracts.Locations;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace InfoTrack.Tests.Integration;
 
-public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class LocationsIntegrationTests : IClassFixture<IsolatedWebApplicationFactory>
 {
     private readonly HttpClient _client;
 
-    public ApiIntegrationTests(WebApplicationFactory<Program> factory) =>
+    public LocationsIntegrationTests(IsolatedWebApplicationFactory factory) =>
         _client = factory.CreateClient();
 
     [Fact]
@@ -50,6 +49,14 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         payload!.Locations.Should().HaveCount(2);
         payload.Locations.Should().OnlyContain(x => !x.IsActive);
     }
+}
+
+public sealed class ScrapeIntegrationTests : IClassFixture<IsolatedWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public ScrapeIntegrationTests(IsolatedWebApplicationFactory factory) =>
+        _client = factory.CreateClient();
 
     [Fact]
     public async Task RunScrape_WithNoActiveLocations_ReturnsBadRequest()
@@ -60,6 +67,14 @@ public sealed class ApiIntegrationTests : IClassFixture<WebApplicationFactory<Pr
         var body = await response.Content.ReadAsStringAsync();
         body.Should().Contain("No active locations configured");
     }
+}
+
+public sealed class DiscoveryIntegrationTests : IClassFixture<IsolatedWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public DiscoveryIntegrationTests(IsolatedWebApplicationFactory factory) =>
+        _client = factory.CreateClient();
 
     [Fact]
     public async Task GetDiscoverySummary_ReturnsActiveLocationCount()

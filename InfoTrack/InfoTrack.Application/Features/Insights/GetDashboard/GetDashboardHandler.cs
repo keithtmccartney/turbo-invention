@@ -63,6 +63,7 @@ public sealed class GetDashboardHandler(
                     x.LocationId,
                     x.Solicitor.Phone,
                     x.Solicitor.Address,
+                    x.Solicitor.Website,
                     x.Solicitor.Rating,
                     x.Solicitor.ReviewCount,
                     x.Rank)));
@@ -88,7 +89,11 @@ public sealed class GetDashboardHandler(
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return new ScrapeRunSummaryDto(snapshot.ScrapedAt, locationNames, snapshot.TotalFirms);
+        var totalFirms = snapshot.Entries.Count > 0
+            ? snapshot.Entries.Select(entry => entry.SolicitorId).Distinct().Count()
+            : snapshot.TotalFirms;
+
+        return new ScrapeRunSummaryDto(snapshot.ScrapedAt, locationNames, totalFirms);
     }
 
     private static DashboardResponse EmptyDashboard(

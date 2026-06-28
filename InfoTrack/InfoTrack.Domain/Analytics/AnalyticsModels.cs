@@ -7,6 +7,7 @@ public sealed record SolicitorSnapshotRecord(
     Guid LocationId,
     string? Phone,
     string? Address,
+    string? Website,
     decimal? Rating,
     int? ReviewCount,
     int Rank);

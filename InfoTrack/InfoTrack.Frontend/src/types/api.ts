@@ -69,6 +69,9 @@ export interface DiscoveryRunSummaryDto {
   errorMessage?: string
 }
 
+export * from './discovery'
+export * from './scrape'
+
 export interface SolicitorDto {
   id: string
   firmName: string
@@ -154,7 +157,10 @@ export interface SolicitorDeltaDto {
   firmName: string
   locationName: string
   phone?: string
+  address?: string
+  website?: string
   rating?: number
+  reviewCount?: number
   rank: number
 }
 

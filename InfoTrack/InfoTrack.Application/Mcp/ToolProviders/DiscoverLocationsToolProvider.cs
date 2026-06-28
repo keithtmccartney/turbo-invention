@@ -15,7 +15,8 @@ public sealed class DiscoverLocationsToolProvider(RunDiscoveryHandler handler) :
         JsonElement? arguments,
         CancellationToken cancellationToken = default)
     {
-        var result = await handler.HandleAsync(cancellationToken);
+        var correlationId = Guid.NewGuid().ToString("N");
+        var result = await handler.HandleAsync(correlationId, cancellationToken);
         return McpToolExecutionResult.SuccessJson(JsonSerializer.SerializeToNode(result, McpJsonDefaults.SerializerOptions)!);
     }
 }

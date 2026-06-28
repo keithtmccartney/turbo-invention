@@ -38,10 +38,26 @@ public sealed class CompareSnapshotsHandler(
             comparison.CurrentSnapshotId,
             comparison.PreviousSnapshotId,
             comparison.NewSolicitors
-                .Select(x => new SolicitorDeltaDto(x.FirmName, x.LocationName, x.Phone, x.Rating, x.Rank))
+                .Select(x => new SolicitorDeltaDto(
+                    x.FirmName,
+                    x.LocationName,
+                    x.Phone,
+                    x.Address,
+                    x.Website,
+                    x.Rating,
+                    x.ReviewCount,
+                    x.Rank))
                 .ToList(),
             comparison.RemovedSolicitors
-                .Select(x => new SolicitorDeltaDto(x.FirmName, x.LocationName, x.Phone, x.Rating, x.Rank))
+                .Select(x => new SolicitorDeltaDto(
+                    x.FirmName,
+                    x.LocationName,
+                    x.Phone,
+                    x.Address,
+                    x.Website,
+                    x.Rating,
+                    x.ReviewCount,
+                    x.Rank))
                 .ToList(),
             comparison.RegionalDeltas
                 .Select(x => new RegionalDeltaDto(
@@ -70,6 +86,7 @@ public sealed class CompareSnapshotsHandler(
                     x.LocationId,
                     x.Solicitor.Phone,
                     x.Solicitor.Address,
+                    x.Solicitor.Website,
                     x.Solicitor.Rating,
                     x.Solicitor.ReviewCount,
                     x.Rank)));

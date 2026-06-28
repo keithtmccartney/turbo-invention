@@ -6,11 +6,11 @@ using Microsoft.Extensions.Configuration;
 
 namespace InfoTrack.Tests.Integration;
 
-public sealed class ChatIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class ChatIntegrationTests : IClassFixture<IsolatedWebApplicationFactory>
 {
     private readonly HttpClient _client;
 
-    public ChatIntegrationTests(WebApplicationFactory<Program> factory)
+    public ChatIntegrationTests(IsolatedWebApplicationFactory factory)
     {
         _client = factory.WithWebHostBuilder(builder =>
             {

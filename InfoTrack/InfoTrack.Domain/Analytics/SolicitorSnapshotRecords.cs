@@ -17,4 +17,21 @@ public static class SolicitorSnapshotRecords
             .GroupBy(FirmLocationKey)
             .Select(group => group.MinBy(record => record.Rank)!)
             .ToList();
+
+    /// <summary>
+    /// Keeps one record per firm, preferring the best (lowest) search rank across locations.
+    /// </summary>
+    public static IReadOnlyList<SolicitorSnapshotRecord> DeduplicateByFirm(
+        IEnumerable<SolicitorSnapshotRecord> records) =>
+        records
+            .GroupBy(record => record.ExternalKey, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.MinBy(record => record.Rank)!)
+            .ToList();
+
+    /// <summary>
+    /// Normalizes snapshot records for analytics: one row per firm with the best rank in its primary location.
+    /// </summary>
+    public static IReadOnlyList<SolicitorSnapshotRecord> NormalizeForAnalytics(
+        IEnumerable<SolicitorSnapshotRecord> records) =>
+        DeduplicateByFirm(DeduplicateByFirmAndLocation(records));
 }

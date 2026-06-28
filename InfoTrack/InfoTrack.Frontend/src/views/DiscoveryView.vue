@@ -25,6 +25,7 @@ const store = useAppStore()
 const { lineOptions, brandPalette } = useChartTheme()
 
 const summary = computed(() => store.discoverySummary)
+const progress = computed(() => store.activeDiscoveryStatus?.progress)
 
 const trendChart = computed(() => {
   const trend = summary.value?.historicalTrend ?? []
@@ -65,6 +66,42 @@ async function discover() {
         {{ store.discovering ? 'Discovering…' : 'Discover locations' }}
       </button>
     </div>
+
+    <Panel v-if="store.discovering && progress" title="Discovery progress" :searchable="false">
+      <div class="discovery-progress">
+        <div class="discovery-progress-bar" role="progressbar" :aria-valuenow="progress.percentComplete" aria-valuemin="0" aria-valuemax="100">
+          <div class="discovery-progress-fill" :style="{ width: `${progress.percentComplete}%` }" />
+        </div>
+        <p class="discovery-progress-stage">{{ progress.stage }}</p>
+        <p v-if="progress.message" class="muted">{{ progress.message }}</p>
+        <dl class="detail-list compact">
+          <div>
+            <dt>Sitemaps</dt>
+            <dd>{{ progress.sitemapsDownloaded }}</dd>
+          </div>
+          <div>
+            <dt>URLs parsed</dt>
+            <dd>{{ progress.urlsParsed }}</dd>
+          </div>
+          <div>
+            <dt>Locations</dt>
+            <dd>{{ progress.locationsDiscovered }}</dd>
+          </div>
+          <div>
+            <dt>Added</dt>
+            <dd>{{ progress.newLocationsAdded }}</dd>
+          </div>
+          <div>
+            <dt>Updated</dt>
+            <dd>{{ progress.existingLocationsUpdated }}</dd>
+          </div>
+          <div v-if="progress.errorsEncountered">
+            <dt>Errors</dt>
+            <dd>{{ progress.errorsEncountered }}</dd>
+          </div>
+        </dl>
+      </div>
+    </Panel>
 
     <div class="cards">
       <StatCard label="Active locations" :value="summary?.activeLocationCount ?? 0" />
@@ -162,13 +199,33 @@ async function discover() {
       </p>
       <p v-else-if="!store.discoveryHistory.length" class="muted">No discovery runs recorded yet.</p>
     </Panel>
-
-    <Panel v-if="store.lastDiscoveryRun" title="Latest discovery result" :searchable="false">
-      <p class="muted">
-        {{ store.lastDiscoveryRun.statistics.totalDiscovered }} locations discovered from
-        {{ store.lastDiscoveryRun.source }} in
-        {{ formatDuration(store.lastDiscoveryRun.durationMilliseconds) }}.
-      </p>
-    </Panel>
   </section>
 </template>
+
+<style scoped>
+.discovery-progress-bar {
+  height: 0.5rem;
+  background: var(--surface-muted, #e5e7eb);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.discovery-progress-fill {
+  height: 100%;
+  background: var(--accent, #f59e0b);
+  transition: width 0.3s ease;
+}
+
+.discovery-progress-stage {
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.detail-list.compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+</style>

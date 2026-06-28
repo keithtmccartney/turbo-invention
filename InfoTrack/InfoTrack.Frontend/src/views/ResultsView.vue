@@ -7,6 +7,7 @@ import { useTableSort } from '../utils/tableSort'
 
 const store = useAppStore()
 const locationFilter = ref('all')
+const scrapeProgress = computed(() => store.activeScrapeStatus?.progress)
 
 type ResultSortKey = 'firmName' | 'locationName' | 'phone' | 'rating' | 'reviewCount' | 'address'
 const { toggleSort, ariaSort, sortedRows: rows, bodyKey } = useTableSort<ResultSortKey, Record<ResultSortKey, unknown>>(
@@ -28,6 +29,20 @@ const locations = computed(() => store.results?.results.map(x => x.locationName)
 
 <template>
   <section class="page">
+    <Panel v-if="store.scraping && scrapeProgress" title="Scrape progress" :searchable="false">
+      <div class="results-progress">
+        <div class="results-progress-bar" role="progressbar" :aria-valuenow="scrapeProgress.percentComplete" aria-valuemin="0" aria-valuemax="100">
+          <div class="results-progress-fill" :style="{ width: `${scrapeProgress.percentComplete}%` }" />
+        </div>
+        <p class="results-progress-stage">{{ scrapeProgress.stage }}</p>
+        <p v-if="scrapeProgress.message" class="muted">{{ scrapeProgress.message }}</p>
+        <p class="muted">
+          {{ scrapeProgress.locationsCompleted }} of {{ scrapeProgress.locationsTotal }} locations ·
+          {{ scrapeProgress.firmsDiscovered }} firms
+        </p>
+      </div>
+    </Panel>
+
     <Panel onboarding-target="results-table">
       <template #header>
         <div class="toolbar">
@@ -88,3 +103,24 @@ const locations = computed(() => store.results?.results.map(x => x.locationName)
     </Panel>
   </section>
 </template>
+
+<style scoped>
+.results-progress-bar {
+  height: 0.5rem;
+  background: var(--surface-muted, #e5e7eb);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.results-progress-fill {
+  height: 100%;
+  background: var(--accent, #f59e0b);
+  transition: width 0.3s ease;
+}
+
+.results-progress-stage {
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+</style>

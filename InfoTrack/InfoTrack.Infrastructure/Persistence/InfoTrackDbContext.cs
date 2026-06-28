@@ -17,6 +17,8 @@ public sealed class InfoTrackDbContext(DbContextOptions<InfoTrackDbContext> opti
 
     public DbSet<DiscoveryRun> DiscoveryRuns => Set<DiscoveryRun>();
 
+    public DbSet<ScrapeRun> ScrapeRuns => Set<ScrapeRun>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Location>(entity =>
@@ -61,6 +63,18 @@ public sealed class InfoTrackDbContext(DbContextOptions<InfoTrackDbContext> opti
         {
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Source).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.ErrorMessage).HasMaxLength(2000);
+            entity.Property(x => x.CorrelationId).HasMaxLength(64);
+            entity.Property(x => x.ProgressMessage).HasMaxLength(500);
+            entity.HasIndex(x => x.StartedAt);
+            entity.HasIndex(x => x.CompletedAt);
+        });
+
+        modelBuilder.Entity<ScrapeRun>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.CorrelationId).HasMaxLength(64);
+            entity.Property(x => x.ProgressMessage).HasMaxLength(500);
             entity.Property(x => x.ErrorMessage).HasMaxLength(2000);
             entity.HasIndex(x => x.StartedAt);
             entity.HasIndex(x => x.CompletedAt);

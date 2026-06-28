@@ -11,6 +11,13 @@ public sealed class GetResultsHandler(
     public async Task<ResultsResponse> HandleAsync(CancellationToken cancellationToken = default)
     {
         var latestSnapshot = await snapshotRepository.GetLatestAsync(cancellationToken);
+        return await MapFromSolicitorsAsync(latestSnapshot?.ScrapedAt, cancellationToken);
+    }
+
+    private async Task<ResultsResponse> MapFromSolicitorsAsync(
+        DateTimeOffset? scrapedAt,
+        CancellationToken cancellationToken)
+    {
         var solicitors = await solicitorRepository.GetAllWithLocationsAsync(cancellationToken);
 
         var grouped = solicitors
@@ -18,13 +25,13 @@ public sealed class GetResultsHandler(
             .OrderBy(x => x.First().Location?.DisplayOrder ?? int.MaxValue)
             .Select(group => new LocationResultsDto(
                 group.Key,
-                group.Select(Map).OrderBy(x => x.FirmName).ToList()))
+                group.Select(MapSolicitor).OrderBy(x => x.FirmName).ToList()))
             .ToList();
 
-        return new ResultsResponse(latestSnapshot?.ScrapedAt, grouped);
+        return new ResultsResponse(scrapedAt, grouped);
     }
 
-    private static SolicitorDto Map(Domain.Entities.Solicitor solicitor) =>
+    private static SolicitorDto MapSolicitor(Domain.Entities.Solicitor solicitor) =>
         new(
             solicitor.Id,
             ScrapedTextNormalizer.Normalize(solicitor.FirmName) ?? solicitor.FirmName,

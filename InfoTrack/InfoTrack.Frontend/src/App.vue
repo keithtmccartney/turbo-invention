@@ -8,6 +8,7 @@ import ThemeToggle from "./components/ThemeToggle.vue";
 import SidebarNav from "./components/SidebarNav.vue";
 import SidebarFooter from "./components/SidebarFooter.vue";
 import HeaderHistory from "./components/HeaderHistory.vue";
+import ScrapeProgressBanner from "./components/ScrapeProgressBanner.vue";
 import OnboardingTour from "./components/OnboardingTour.vue";
 import DashboardInterstitial from "./components/DashboardInterstitial.vue";
 import { usePanelShortcuts } from "./composables/usePanelShortcuts";
@@ -101,6 +102,7 @@ const pageSubtitle = computed(() =>
       <div class="content-body">
         <div v-if="store.error" class="banner error">{{ store.error }}</div>
         <div v-if="store.loading" class="banner">Loading…</div>
+        <ScrapeProgressBanner v-if="route.name !== 'results'" />
 
         <div class="content-view">
           <RouterView v-slot="{ Component }">

@@ -29,6 +29,11 @@ public sealed class DiscoveryRunRepository(InfoTrackDbContext dbContext) : IDisc
     public async Task<DiscoveryRun?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await dbContext.DiscoveryRuns.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
+    public async Task<bool> HasActiveRunAsync(CancellationToken cancellationToken = default) =>
+        await dbContext.DiscoveryRuns.AnyAsync(
+            x => x.Status == DiscoveryRunStatus.Queued || x.Status == DiscoveryRunStatus.Running,
+            cancellationToken);
+
     public async Task<IReadOnlyList<DiscoveryRun>> GetHistoryAsync(int take, CancellationToken cancellationToken = default) =>
         await dbContext.DiscoveryRuns
             .OrderByDescending(x => x.StartedAt)
