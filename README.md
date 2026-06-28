@@ -1,8 +1,22 @@
 # turbo-invention
-[.NET Core Web API &amp; SPA] Development Project
 
-# Notes
-Abc
+InfoTrack technical assessment — solicitor intelligence platform.
 
-# Unit Tests
-* Abc
+See **[InfoTrack/README.md](InfoTrack/README.md)** for architecture, setup, and documentation.
+
+## Quick start
+
+```bash
+# Terminal 1 — API
+cd InfoTrack
+dotnet run --project InfoTrack.Api
+
+# Terminal 2 — SPA
+cd InfoTrack/InfoTrack.Frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173, configure locations, and click **Run Scrape**.
+
+JMeter smoke/load tests: [`InfoTrack/JMeter/tests/jmeter/`](InfoTrack/JMeter/tests/jmeter/).
