@@ -2,6 +2,12 @@
 
 Technical assessment solution demonstrating production-grade .NET architecture, a Vue 3 executive dashboard, and an intentionally overengineered analytics engine designed for future microservice extraction.
 
+| **Assistant (built-in chat UI)** |
+| :---: |
+| ![InfoTrack Assistant — natural-language queries against live scrape data](assets/screenshots/infotrack_assistant.png) |
+
+The **Assistant** page is InfoTrack’s built-in chat UI for MCP-backed queries — you do not need a separate MCP client. **It still requires a local inference server** (LM Studio, [Qube](https://github.com/dagaza/Qube), Ollama, or any OpenAI-compatible host on `localhost`): InfoTrack orchestrates tool calls and forwards prompts to that server; it does not run a model itself. The screenshot above shows the page in action once scrape data and a running LLM backend are in place.
+
 ## Architecture
 
 ```mermaid
@@ -220,6 +226,13 @@ Configuration lives under `Discovery` in `appsettings.json` (`BaseUrl`, `Sitemap
 
 InfoTrack exposes a **Model Context Protocol (MCP)** tool surface and a conversational **Assistant** page that queries live scrape and analytics data in plain English.
 
+Two separate pieces are involved:
+
+1. **Local inference server (required)** — an OpenAI-compatible chat-completions API (LM Studio, Qube, Ollama, etc.) configured via `LocalLlm` in `appsettings.json`. Without this, `/api/chat` returns **503** and the Assistant page cannot respond.
+2. **Chat surface (pick one)** — use the **Assistant** page in the SPA (see screenshot at the top of this README), *or* call the HTTP MCP endpoints (`/api/mcp`, `/api/mcp/assistant`) from an external MCP-aware client. Both paths invoke the same tool providers.
+
+InfoTrack never hosts the LLM weights or inference runtime — only tool orchestration and the Vue chat shell.
+
 **Architecture:**
 
 - Tool providers in `InfoTrack.Application/Mcp/ToolProviders/` are discovered via `[McpTool]` attributes and registered in `McpToolRegistry`.
@@ -241,13 +254,20 @@ InfoTrack exposes a **Model Context Protocol (MCP)** tool surface and a conversa
 
 The assistant selects tools automatically (up to `LocalLlm:MaxToolRounds` rounds). Replies are sanitised for HTML entities and scraped text artefacts. Set `Mcp:EnableAssistant` and `LocalLlm:Enabled` to `true`, ensure your local model server is running, then open **Assistant** in the sidebar.
 
+#### How to use the Assistant page
+
+1. **Start a local LLM server** and confirm `LocalLlm:BaseUrl`, `LocalLlm:Model`, `Mcp:EnableAssistant`, and `LocalLlm:Enabled` in `appsettings.json` match your running host (see [Local LLM setup](#local-llm-setup)).
+2. **Run a scrape** (sidebar **Run Scrape** or Discovery → Locations → scrape) so live firm data exists.
+3. Open **Assistant** and ask a natural-language question — for example, *"Which firms are on Bon Accord Crescent?"* or *"How many firms do we have in Aberdeen?"* Location counts, firm lookups by address, dashboard stats, snapshot comparison, and exports are all reachable via tools.
+4. Review **Query history** in the page header to revisit recent questions in the current browser session.
+
 #### Local LLM setup
 
-InfoTrack only requires a server that exposes **`/v1/chat/completions`** in OpenAI-compatible form. Point `LocalLlm:BaseUrl` and `LocalLlm:Model` at whatever host you use.
+InfoTrack **does not** ship or run inference. You must start a separate process that exposes **`/v1/chat/completions`** in OpenAI-compatible form, then point `LocalLlm:BaseUrl` and `LocalLlm:Model` at it.
 
 **LM Studio (common default)** — load a GGUF model and start the local server (default `http://localhost:1234`).
 
-**[Qube](https://github.com/dagaza/Qube)** — a fully local, privacy-first desktop assistant with a built-in **llama.cpp** engine and **Model Manager** for downloading GGUF weights from Hugging Face. Qube can run inference internally or connect to an external OpenAI-compatible server on localhost (LM Studio, Ollama, etc.). Windows installs:
+**[Qube](https://github.com/dagaza/Qube)** — a fully local, privacy-first desktop assistant with a built-in **llama.cpp** engine and **Model Manager** for downloading GGUF weights from Hugging Face. Many assessors already run Qube alongside other local-AI tooling; InfoTrack still needs its **own** OpenAI-compatible endpoint (typically LM Studio or Ollama on `localhost`, whether you start that server directly or through Qube’s external-server workflow). Windows installs:
 
 - [WinGet](https://winstall.app/apps/dagaza.Qube) — `winget install dagaza.Qube`
 - [Chocolatey](https://community.chocolatey.org/packages/qube) — `choco install qube`
@@ -298,7 +318,7 @@ See the comment in `InfoTrack.Api/Program.cs` where the schema is created withou
 
 ## Known limitations
 
-- **Local LLM dependency** — the Assistant requires a running OpenAI-compatible local model server (`LocalLlm:BaseUrl`); returns 503 when unavailable. [Qube](https://github.com/dagaza/Qube), LM Studio, Ollama, and other compatible hosts are supported.
+- **Local LLM dependency** — the Assistant **will not work** without a running OpenAI-compatible inference server (`LocalLlm:BaseUrl`); InfoTrack does not embed a model and returns **503** when the server is unreachable. [Qube](https://github.com/dagaza/Qube), LM Studio, Ollama, and other compatible hosts are supported. The Assistant page is only the chat UI — it is not a substitute for that server.
 - **InMemory database** — data is lost on restart; not suitable for production persistence.
 - **Live scraping** — depends on solicitors.com HTML structure; site changes may require parser updates.
 - **Rate limiting** — polite delay between requests; no retry/circuit-breaker policies (would add Polly in production).
