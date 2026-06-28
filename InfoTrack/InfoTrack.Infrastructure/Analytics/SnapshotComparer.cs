@@ -6,20 +6,20 @@ public sealed class SnapshotComparer
 {
     public SnapshotComparisonResult Compare(AnalyticsContext context)
     {
-        var current = SolicitorSnapshotRecords.DeduplicateByFirmAndLocation(context.Current.Solicitors);
-        var previous = SolicitorSnapshotRecords.DeduplicateByFirmAndLocation(context.Previous?.Solicitors ?? []);
+        var current = SolicitorSnapshotRecords.NormalizeForAnalytics(context.Current.Solicitors);
+        var previous = SolicitorSnapshotRecords.NormalizeForAnalytics(context.Previous?.Solicitors ?? []);
 
-        var currentKeys = current.ToDictionary(x => SolicitorSnapshotRecords.FirmLocationKey(x));
-        var previousKeys = previous.ToDictionary(x => SolicitorSnapshotRecords.FirmLocationKey(x));
+        var currentKeys = current.ToDictionary(x => x.ExternalKey, StringComparer.OrdinalIgnoreCase);
+        var previousKeys = previous.ToDictionary(x => x.ExternalKey, StringComparer.OrdinalIgnoreCase);
 
         var newSolicitors = current
-            .Where(x => !previousKeys.ContainsKey(SolicitorSnapshotRecords.FirmLocationKey(x)))
+            .Where(x => !previousKeys.ContainsKey(x.ExternalKey))
             .OrderBy(x => x.LocationName)
             .ThenBy(x => x.FirmName)
             .ToList();
 
         var removedSolicitors = previous
-            .Where(x => !currentKeys.ContainsKey(SolicitorSnapshotRecords.FirmLocationKey(x)))
+            .Where(x => !currentKeys.ContainsKey(x.ExternalKey))
             .OrderBy(x => x.LocationName)
             .ThenBy(x => x.FirmName)
             .ToList();

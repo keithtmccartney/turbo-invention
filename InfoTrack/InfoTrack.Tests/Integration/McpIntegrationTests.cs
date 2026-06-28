@@ -9,12 +9,12 @@ using Microsoft.Extensions.Configuration;
 
 namespace InfoTrack.Tests.Integration;
 
-public sealed class McpIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class McpIntegrationTests : IClassFixture<IsolatedWebApplicationFactory>
 {
     private const string ApiKey = "integration-test-mcp-key";
     private readonly HttpClient _client;
 
-    public McpIntegrationTests(WebApplicationFactory<Program> factory)
+    public McpIntegrationTests(IsolatedWebApplicationFactory factory)
     {
         _client = factory.WithWebHostBuilder(builder =>
             {

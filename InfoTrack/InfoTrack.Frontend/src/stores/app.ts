@@ -2,13 +2,15 @@ import axios from 'axios'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { discoveryApi, insightsApi, locationsApi, scrapeApi } from '../api/client'
+import { useOperationPolling } from '../composables/useOperationPolling'
 import type {
   DashboardResponse,
-  DiscoveryRunResponse,
+  DiscoveryRunStatusResponse,
   DiscoveryRunSummaryDto,
   DiscoverySummaryDto,
   LocationDto,
   ResultsResponse,
+  ScrapeRunStatusResponse,
 } from '../types/api'
 
 export const useAppStore = defineStore('app', () => {
@@ -17,13 +19,17 @@ export const useAppStore = defineStore('app', () => {
   const results = ref<ResultsResponse | null>(null)
   const discoverySummary = ref<DiscoverySummaryDto | null>(null)
   const discoveryHistory = ref<DiscoveryRunSummaryDto[]>([])
-  const lastDiscoveryRun = ref<DiscoveryRunResponse | null>(null)
+  const activeDiscoveryStatus = ref<DiscoveryRunStatusResponse | null>(null)
+  const activeScrapeStatus = ref<ScrapeRunStatusResponse | null>(null)
   const loading = ref(false)
   const scraping = ref(false)
   const discovering = ref(false)
   const error = ref<string | null>(null)
   const activeLocationCount = computed(() => locations.value.filter(location => location.isActive).length)
   const canRunScrape = computed(() => activeLocationCount.value > 0)
+
+  const discoveryPolling = useOperationPolling<DiscoveryRunStatusResponse>()
+  const scrapePolling = useOperationPolling<ScrapeRunStatusResponse>()
 
   function readApiErrorMessage(e: unknown, fallback: string) {
     if (axios.isAxiosError(e)) {
@@ -70,8 +76,23 @@ export const useAppStore = defineStore('app', () => {
   async function runDiscovery() {
     discovering.value = true
     error.value = null
+    activeDiscoveryStatus.value = null
+
     try {
-      lastDiscoveryRun.value = await discoveryApi.run()
+      const started = await discoveryApi.start()
+
+      const finalStatus = await discoveryPolling.pollUntilComplete({
+        poll: () => discoveryApi.status(started.operationId),
+        isTerminal: status => status.status === 'Completed' || status.status === 'Failed',
+        onUpdate: status => {
+          activeDiscoveryStatus.value = status
+        },
+      })
+
+      if (finalStatus.status === 'Failed') {
+        throw new Error(finalStatus.errorMessage ?? 'Discovery failed')
+      }
+
       await loadDiscovery()
       if (dashboard.value) {
         dashboard.value = {
@@ -80,7 +101,7 @@ export const useAppStore = defineStore('app', () => {
         }
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Discovery failed'
+      error.value = readApiErrorMessage(e, 'Discovery failed')
       throw e
     } finally {
       discovering.value = false
@@ -99,8 +120,23 @@ export const useAppStore = defineStore('app', () => {
 
     scraping.value = true
     error.value = null
+    activeScrapeStatus.value = null
+
     try {
-      await scrapeApi.run()
+      const started = await scrapeApi.start()
+
+      const finalStatus = await scrapePolling.pollUntilComplete({
+        poll: () => scrapeApi.status(started.operationId),
+        isTerminal: status => status.status === 'Completed' || status.status === 'Failed',
+        onUpdate: status => {
+          activeScrapeStatus.value = status
+        },
+      })
+
+      if (finalStatus.status === 'Failed') {
+        throw new Error(finalStatus.errorMessage ?? 'Scrape failed')
+      }
+
       await Promise.all([loadDashboard(), loadResults()])
     } catch (e) {
       error.value = readApiErrorMessage(e, 'Scrape failed')
@@ -127,7 +163,8 @@ export const useAppStore = defineStore('app', () => {
     results,
     discoverySummary,
     discoveryHistory,
-    lastDiscoveryRun,
+    activeDiscoveryStatus,
+    activeScrapeStatus,
     loading,
     scraping,
     discovering,

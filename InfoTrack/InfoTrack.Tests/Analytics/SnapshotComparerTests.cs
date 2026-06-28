@@ -65,6 +65,27 @@ public sealed class SnapshotComparerTests
         result.NewSolicitors.Single().Rank.Should().Be(1);
     }
 
+    [Fact]
+    public void Compare_DeduplicatesRepeatedFirmAcrossLocations()
+    {
+        var current = new ScrapeSnapshotContext(
+            Guid.NewGuid(),
+            DateTimeOffset.UtcNow,
+            [
+                Record("shared", "Gowen & Stevens LLP", "Carshalton", 2),
+                Record("shared", "Gowen & Stevens LLP", "Sutton", 5),
+                Record("other", "KT Solicitors Limited", "Carshalton", 1),
+            ]);
+
+        var result = _comparer.Compare(new AnalyticsContext(current, null));
+
+        result.NewSolicitors.Should().HaveCount(2);
+        result.NewSolicitors.Should().ContainSingle(x => x.FirmName == "Gowen & Stevens LLP");
+        result.NewSolicitors.Single(x => x.FirmName == "Gowen & Stevens LLP").LocationName.Should().Be("Carshalton");
+        result.RegionalDeltas.Should().ContainSingle(x =>
+            x.LocationName == "Carshalton" && x.CurrentCount == 2 && x.NewCount == 2);
+    }
+
     private static SolicitorSnapshotRecord Record(string key, string name, string location, int rank) =>
-        new(key, name, location, Guid.NewGuid(), "0123", "Address", 4.5m, 100, rank);
+        new(key, name, location, Guid.NewGuid(), "0123", "Address", null, 4.5m, 100, rank);
 }

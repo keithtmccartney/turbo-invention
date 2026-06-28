@@ -12,8 +12,7 @@ public static class McpEndpointRouteBuilderExtensions
     public static RouteGroupBuilder MapMcpEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/mcp")
-            .WithTags("MCP")
-            .ExcludeFromDescription();
+            .WithTags("MCP");
 
         group.MapPost("/", (HttpContext httpContext, McpJsonRpcDispatcher dispatcher, McpApiKeyValidator validator, IOptions<McpOptions> options, CancellationToken cancellationToken) =>
                 HandleJsonRpcAsync(httpContext, dispatcher, validator, options, cancellationToken))

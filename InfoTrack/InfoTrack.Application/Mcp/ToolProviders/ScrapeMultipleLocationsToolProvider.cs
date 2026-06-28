@@ -31,7 +31,7 @@ public sealed class ScrapeMultipleLocationsToolProvider(
 
         var locations = GetRequiredStringArray(args, "locations");
         await updateLocationsHandler.HandleAsync(new UpdateLocationsRequest(locations), cancellationToken);
-        var scrape = await runScrapeHandler.HandleAsync(cancellationToken);
+        var scrape = await runScrapeHandler.HandleAsync(Guid.NewGuid().ToString("N"), cancellationToken);
 
         return McpToolExecutionResult.SuccessJson(JsonSerializer.SerializeToNode(new
         {

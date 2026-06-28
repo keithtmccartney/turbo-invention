@@ -22,8 +22,8 @@ public sealed class McpAssistantService(
 
         Rules:
         - Always use the provided tools to retrieve current data. Never invent firm names, counts, or statistics.
-        - Prefer get_statistics for overview and location firm-count questions; use search_firms to list firms in a location or find firms by name.
-        - search_firms accepts location without a firm name query. get_statistics accepts an optional location argument.
+        - Prefer get_statistics for overview and location firm-count questions; use get_results to list firms in a location; use search_firms to filter by text across firm fields (name, address, phone, website, description, ratings).
+        - get_results returns the same solicitor schema as the Results page. search_firms returns matching firms from that schema plus lastScrapedAt.
         - Use discover_locations before scraping when the catalogue is empty or the user asks to refresh locations.
         - Use scrape_location or scrape_multiple_locations when the user wants fresh scrape data.
         - Summarise tool results clearly in plain English. Use the term "firms" consistently.

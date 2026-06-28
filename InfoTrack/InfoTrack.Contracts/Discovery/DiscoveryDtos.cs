@@ -36,6 +36,35 @@ public sealed record DiscoveryRunSummaryDto(
 
 public sealed record DiscoveryHistoryResponse(IReadOnlyList<DiscoveryRunSummaryDto> Runs);
 
+public sealed record StartDiscoveryResponse(
+    Guid OperationId,
+    string CorrelationId,
+    string Status);
+
+public sealed record DiscoveryProgressDto(
+    string Stage,
+    string? Message,
+    int SitemapsDownloaded,
+    int UrlsParsed,
+    int LocationsDiscovered,
+    int NewLocationsAdded,
+    int ExistingLocationsUpdated,
+    int ErrorsEncountered,
+    int PercentComplete);
+
+public sealed record DiscoveryRunStatusResponse(
+    Guid OperationId,
+    string CorrelationId,
+    string Source,
+    string Status,
+    DateTimeOffset StartedAt,
+    DateTimeOffset? CompletedAt,
+    long? DurationMilliseconds,
+    DiscoveryProgressDto Progress,
+    DiscoveryStatisticsDto? Statistics,
+    string? ErrorMessage,
+    IReadOnlyList<DiscoveredLocationDto>? Locations);
+
 public sealed record DiscoveryRunTrendPointDto(
     DateTimeOffset CompletedAt,
     int LocationsFound,

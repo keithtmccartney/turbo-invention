@@ -1,16 +1,20 @@
 using InfoTrack.Api.Assistant;
 using InfoTrack.Api.Mcp;
 using InfoTrack.Api.Mcp.OpenApi;
+using InfoTrack.Api.Middleware;
 using InfoTrack.Application;
 using InfoTrack.Application.Features.Discovery.GetDiscoveryHistory;
+using InfoTrack.Application.Features.Discovery.GetDiscoveryRunStatus;
 using InfoTrack.Application.Features.Discovery.GetDiscoverySummary;
 using InfoTrack.Application.Features.Discovery.GetLatestDiscovery;
-using InfoTrack.Application.Features.Discovery.RunDiscovery;
+using InfoTrack.Application.Features.Discovery.StartDiscovery;
 using InfoTrack.Application.Features.Insights.CompareSnapshots;
 using InfoTrack.Application.Features.Insights.GetDashboard;
 using InfoTrack.Application.Features.Locations.GetLocations;
 using InfoTrack.Application.Features.Locations.UpdateLocations;
 using InfoTrack.Application.Features.Scraping.GetResults;
+using InfoTrack.Application.Features.Scraping.GetScrapeRunStatus;
+using InfoTrack.Application.Features.Scraping.StartScrape;
 using InfoTrack.Application.Features.Scraping.RunScrape;
 using InfoTrack.Contracts.Insights;
 using InfoTrack.Contracts.Locations;
@@ -23,7 +27,12 @@ builder.Services.AddProblemDetails();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new() { Title = "InfoTrack Solicitor Intelligence API", Version = "v1" });
+    options.SwaggerDoc("v1", new()
+    {
+        Title = "InfoTrack Solicitor Intelligence API",
+        Version = "v1",
+        Description = "REST endpoints for locations, discovery, scraping, results, and insights.",
+    });
     options.DocumentFilter<McpToolDocumentFilter>();
 });
 
@@ -53,6 +62,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("Frontend");
@@ -81,22 +91,32 @@ api.MapPost("/locations", async (UpdateLocationsRequest request, UpdateLocations
     .WithName("UpdateLocations")
     .WithSummary("Replaces the active location list.");
 
-api.MapPost("/discovery/run", async (RunDiscoveryHandler handler, CancellationToken ct) =>
+api.MapPost("/discovery/run", async (HttpContext httpContext, StartDiscoveryHandler handler, CancellationToken ct) =>
 {
     try
     {
-        return Results.Ok(await handler.HandleAsync(ct));
+        var correlationId = httpContext.GetCorrelationId();
+        var response = await handler.HandleAsync(correlationId, ct);
+        return Results.Accepted($"/api/discovery/runs/{response.OperationId}/status", response);
     }
-    catch (HttpRequestException ex)
+    catch (InvalidOperationException ex)
     {
-        return Results.Problem(
-            title: "Discovery failed",
-            detail: ex.Message,
-            statusCode: StatusCodes.Status502BadGateway);
+        return Results.Conflict(new { title = "Discovery already in progress", detail = ex.Message });
     }
 })
-    .WithName("RunDiscovery")
-    .WithSummary("Discovers scrape targets from the configured discovery provider and synchronises locations.");
+    .WithName("StartDiscovery")
+    .WithSummary("Starts an asynchronous discovery operation and returns an operation identifier for polling.");
+
+api.MapGet("/discovery/runs/{operationId:guid}/status", async (
+    Guid operationId,
+    GetDiscoveryRunStatusHandler handler,
+    CancellationToken ct) =>
+{
+    var status = await handler.HandleAsync(operationId, ct);
+    return status is null ? Results.NotFound() : Results.Ok(status);
+})
+    .WithName("GetDiscoveryRunStatus")
+    .WithSummary("Returns progress and status for a discovery operation.");
 
 api.MapGet("/discovery/summary", async (GetDiscoverySummaryHandler handler, CancellationToken ct) =>
     Results.Ok(await handler.HandleAsync(cancellationToken: ct)))
@@ -116,11 +136,13 @@ api.MapGet("/discovery/runs", async (int? take, GetDiscoveryHistoryHandler handl
     .WithName("GetDiscoveryHistory")
     .WithSummary("Returns discovery run history.");
 
-api.MapPost("/scrape", async (RunScrapeHandler handler, CancellationToken ct) =>
+api.MapPost("/scrape", async (HttpContext httpContext, StartScrapeHandler handler, CancellationToken ct) =>
 {
     try
     {
-        return Results.Ok(await handler.HandleAsync(ct));
+        var correlationId = httpContext.GetCorrelationId();
+        var response = await handler.HandleAsync(correlationId, ct);
+        return Results.Accepted($"/api/scrape/runs/{response.OperationId}/status", response);
     }
     catch (ArgumentException ex)
     {
@@ -129,9 +151,24 @@ api.MapPost("/scrape", async (RunScrapeHandler handler, CancellationToken ct) =>
             [""] = [ex.Message]
         });
     }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { title = "Scrape already in progress", detail = ex.Message });
+    }
 })
-    .WithName("RunScrape")
-    .WithSummary("Scrapes solicitor listings for all active locations and generates analytics.");
+    .WithName("StartScrape")
+    .WithSummary("Starts an asynchronous scrape operation and returns an operation identifier for polling.");
+
+api.MapGet("/scrape/runs/{operationId:guid}/status", async (
+    Guid operationId,
+    GetScrapeRunStatusHandler handler,
+    CancellationToken ct) =>
+{
+    var status = await handler.HandleAsync(operationId, ct);
+    return status is null ? Results.NotFound() : Results.Ok(status);
+})
+    .WithName("GetScrapeRunStatus")
+    .WithSummary("Returns progress and status for a scrape operation.");
 
 api.MapGet("/results", async (GetResultsHandler handler, CancellationToken ct) =>
     Results.Ok(await handler.HandleAsync(ct)))

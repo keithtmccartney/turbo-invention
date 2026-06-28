@@ -10,7 +10,7 @@ public sealed class McpToolDiscoveryTests
     {
         var types = McpServiceCollectionExtensions.DiscoverToolTypes(typeof(McpServiceCollectionExtensions).Assembly);
 
-        types.Should().HaveCount(10);
+        types.Should().HaveCount(11);
         types.Select(type => type.GetCustomAttributes(typeof(McpToolAttribute), inherit: false).Cast<McpToolAttribute>().Single().Name)
             .Should().BeEquivalentTo(
             [
@@ -20,6 +20,7 @@ public sealed class McpToolDiscoveryTests
                 "export_excel",
                 "export_json",
                 "get_report",
+                "get_results",
                 "get_statistics",
                 "scrape_location",
                 "scrape_multiple_locations",

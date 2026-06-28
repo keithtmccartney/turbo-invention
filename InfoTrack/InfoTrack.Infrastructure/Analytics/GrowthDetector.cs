@@ -17,16 +17,16 @@ public sealed class GrowthDetector
                 firm.FirmName,
                 firm.LocationName,
                 "NewEntrant",
-                $"{firm.FirmName} appeared in {firm.LocationName} for the first time."));
+                $"{firm.FirmName} appeared for the first time."));
         }
 
         var previousLookup = previous
-            .GroupBy(SolicitorSnapshotRecords.FirmLocationKey)
-            .ToDictionary(group => group.Key, group => group.MinBy(record => record.Rank)!);
+            .GroupBy(record => record.ExternalKey, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.MinBy(record => record.Rank)!, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var firm in SolicitorSnapshotRecords.DeduplicateByFirmAndLocation(current))
+        foreach (var firm in SolicitorSnapshotRecords.NormalizeForAnalytics(current))
         {
-            if (!previousLookup.TryGetValue(SolicitorSnapshotRecords.FirmLocationKey(firm), out var prior))
+            if (!previousLookup.TryGetValue(firm.ExternalKey, out var prior))
             {
                 continue;
             }

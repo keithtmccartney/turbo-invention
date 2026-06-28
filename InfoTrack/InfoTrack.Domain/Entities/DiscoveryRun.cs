@@ -1,7 +1,10 @@
+using InfoTrack.Domain.Discovery;
+
 namespace InfoTrack.Domain.Entities;
 
 public enum DiscoveryRunStatus
 {
+    Queued,
     Running,
     Completed,
     Failed
@@ -34,4 +37,16 @@ public sealed class DiscoveryRun
     public DiscoveryRunStatus Status { get; set; }
 
     public string? ErrorMessage { get; set; }
+
+    public string? CorrelationId { get; set; }
+
+    public DiscoveryProgressStage ProgressStage { get; set; } = DiscoveryProgressStage.Queued;
+
+    public string? ProgressMessage { get; set; }
+
+    public int SitemapsDownloaded { get; set; }
+
+    public int UrlsParsed { get; set; }
+
+    public int ErrorsEncountered { get; set; }
 }

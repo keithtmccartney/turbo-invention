@@ -50,7 +50,10 @@ public sealed record SolicitorDeltaDto(
     string FirmName,
     string LocationName,
     string? Phone,
+    string? Address,
+    string? Website,
     decimal? Rating,
+    int? ReviewCount,
     int Rank);
 
 public sealed record RegionalDeltaDto(

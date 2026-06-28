@@ -14,7 +14,7 @@ const intro: AssistantDisplayMessage = {
   role: 'assistant',
   meta: 'intro',
   content:
-    'Ask me about your conveyancing solicitor data — for example: "How many firms do we have?" or "Search for firms named Smith in London". I will query live data through InfoTrack tools.',
+    'Ask me about your conveyancing solicitor data — for example: "How many firms do we have in Aberdeen?" or "Which firms are on Bon Accord Crescent?". I will query live data through InfoTrack tools.',
 }
 
 export const useAssistantStore = defineStore('assistant', () => {

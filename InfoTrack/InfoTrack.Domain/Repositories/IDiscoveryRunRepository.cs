@@ -13,4 +13,6 @@ public interface IDiscoveryRunRepository
     Task<DiscoveryRun?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<DiscoveryRun>> GetHistoryAsync(int take, CancellationToken cancellationToken = default);
+
+    Task<bool> HasActiveRunAsync(CancellationToken cancellationToken = default);
 }

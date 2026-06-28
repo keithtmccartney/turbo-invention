@@ -23,5 +23,7 @@ public interface ISolicitorsScrapeClient
 
 public interface IScrapeOrchestrator
 {
-    Task<Guid> RunAsync(CancellationToken cancellationToken = default);
+    Task<Guid> StartAsync(string correlationId, CancellationToken cancellationToken = default);
+
+    Task ExecuteAsync(Guid operationId, string correlationId, CancellationToken cancellationToken = default);
 }

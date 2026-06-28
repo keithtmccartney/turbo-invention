@@ -2,12 +2,15 @@ import axios from 'axios'
 import type {
   DashboardResponse,
   DiscoveryRunResponse,
+  DiscoveryRunStatusResponse,
   DiscoveryRunSummaryDto,
   DiscoverySummaryDto,
   LocationDto,
   ResultsResponse,
-  ScrapeResponse,
+  ScrapeRunStatusResponse,
   SnapshotComparisonResponse,
+  StartDiscoveryResponse,
+  StartScrapeResponse,
 } from '../types/api'
 
 const api = axios.create({
@@ -22,7 +25,9 @@ export const locationsApi = {
 }
 
 export const discoveryApi = {
-  run: () => api.post<DiscoveryRunResponse>('/discovery/run').then(r => r.data),
+  start: () => api.post<StartDiscoveryResponse>('/discovery/run').then(r => r.data),
+  status: (operationId: string) =>
+    api.get<DiscoveryRunStatusResponse>(`/discovery/runs/${operationId}/status`).then(r => r.data),
   summary: () => api.get<DiscoverySummaryDto>('/discovery/summary').then(r => r.data),
   latestRun: () => api.get<DiscoveryRunSummaryDto>('/discovery/runs/latest').then(r => r.data),
   history: (take = 20) =>
@@ -30,7 +35,9 @@ export const discoveryApi = {
 }
 
 export const scrapeApi = {
-  run: () => api.post<ScrapeResponse>('/scrape').then(r => r.data),
+  start: () => api.post<StartScrapeResponse>('/scrape').then(r => r.data),
+  status: (operationId: string) =>
+    api.get<ScrapeRunStatusResponse>(`/scrape/runs/${operationId}/status`).then(r => r.data),
   results: () => api.get<ResultsResponse>('/results').then(r => r.data),
 }
 
