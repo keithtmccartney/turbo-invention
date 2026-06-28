@@ -18,7 +18,7 @@ public interface ISolicitorsHtmlParser
 
 public interface ISolicitorsScrapeClient
 {
-    Task<string> FetchLocationPageAsync(string locationSlug, CancellationToken cancellationToken = default);
+    Task<string> FetchLocationPageAsync(string locationSlug, Guid? operationId = null, CancellationToken cancellationToken = default);
 }
 
 public interface IScrapeOrchestrator

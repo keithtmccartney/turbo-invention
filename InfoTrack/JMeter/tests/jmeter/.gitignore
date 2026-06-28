@@ -1,0 +1,5 @@
+# JMeter run artefacts — do not commit
+*.jtl
+*.log
+report/
+results/

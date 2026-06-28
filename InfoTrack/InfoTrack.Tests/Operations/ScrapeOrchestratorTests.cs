@@ -127,7 +127,7 @@ public sealed class ScrapeOrchestratorTests
 
     private sealed class NoOpScrapeClient : ISolicitorsScrapeClient
     {
-        public Task<string> FetchLocationPageAsync(string locationSlug, CancellationToken cancellationToken = default) =>
+        public Task<string> FetchLocationPageAsync(string locationSlug, Guid? operationId = null, CancellationToken cancellationToken = default) =>
             Task.FromResult("<html></html>");
     }
 

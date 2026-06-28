@@ -4,6 +4,9 @@ public enum DiscoveryProgressStage
 {
     Queued = 0,
     DownloadingSitemap = 10,
+    WaitingForRateLimit = 15,
+    RetryingRequest = 18,
+    ContinuingAfterRetry = 19,
     SitemapDownloaded = 20,
     ParsingUrls = 30,
     UrlsParsed = 40,

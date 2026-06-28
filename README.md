@@ -18,3 +18,5 @@ npm run dev
 ```
 
 Open http://localhost:5173, configure locations, and click **Run Scrape**.
+
+JMeter smoke/load tests: [`InfoTrack/JMeter/tests/jmeter/`](InfoTrack/JMeter/tests/jmeter/).
