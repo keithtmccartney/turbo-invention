@@ -1,4 +1,5 @@
 using InfoTrack.Api.Mcp.Services;
+using InfoTrack.Api.RateLimiting;
 
 namespace InfoTrack.Api.Assistant;
 
@@ -29,7 +30,8 @@ public static class AssistantEndpointExtensions
                     : Results.Ok(payload);
             })
             .WithName("ChatWithAssistant")
-            .WithSummary("Ask natural-language questions about conveyancing solicitor data via a local LLM and MCP tools.");
+            .WithSummary("Ask natural-language questions about conveyancing solicitor data via a local LLM and MCP tools.")
+            .WithApiWriteRateLimit();
 
         return group;
     }

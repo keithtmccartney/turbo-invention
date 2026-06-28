@@ -1,5 +1,6 @@
 using InfoTrack.Domain.Discovery;
 using InfoTrack.Infrastructure.Options;
+using InfoTrack.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -41,7 +42,7 @@ public sealed class SitemapDiscoveryProvider(
             try
             {
                 logger.LogInformation("Downloading sitemap {SitemapUrl}", sitemapUrl);
-                var xml = await DownloadAsync(sitemapUrl, cancellationToken);
+                var xml = await DownloadAsync(sitemapUrl, runId, cancellationToken);
                 sitemapsDownloaded++;
 
                 await progressReporter.ReportAsync(
@@ -138,7 +139,7 @@ public sealed class SitemapDiscoveryProvider(
             return [BuildAbsoluteUrl(_options.ConveyancingSitemapPath)];
         }
 
-        var indexXml = await DownloadAsync(BuildAbsoluteUrl(_options.SitemapIndexPath), cancellationToken);
+        var indexXml = await DownloadAsync(BuildAbsoluteUrl(_options.SitemapIndexPath), runId, cancellationToken);
 
         await progressReporter.ReportAsync(
             runId,
@@ -156,9 +157,15 @@ public sealed class SitemapDiscoveryProvider(
             .ToList();
     }
 
-    private async Task<string> DownloadAsync(string requestUri, CancellationToken cancellationToken)
+    private async Task<string> DownloadAsync(string requestUri, Guid runId, CancellationToken cancellationToken)
     {
-        using var response = await httpClient.GetAsync(requestUri, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        request.Options.Set(HttpRequestContextKeys.ClientName, ResiliencePipelineNames.Discovery);
+        request.Options.Set(HttpRequestContextKeys.OperationKind, "discovery");
+        request.Options.Set(HttpRequestContextKeys.OperationId, runId);
+
+        using var scope = ResilienceOperationContext.BeginScope(runId);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }

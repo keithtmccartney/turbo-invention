@@ -9,13 +9,11 @@ using InfoTrack.Infrastructure.Operations;
 using InfoTrack.Infrastructure.Options;
 using InfoTrack.Infrastructure.Persistence;
 using InfoTrack.Infrastructure.Repositories;
+using InfoTrack.Infrastructure.Resilience;
 using InfoTrack.Infrastructure.Scraping;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http.Resilience;
-using Microsoft.Extensions.Options;
-using Polly;
 
 namespace InfoTrack.Infrastructure;
 
@@ -27,68 +25,28 @@ public static class DependencyInjection
         services.Configure<DiscoveryOptions>(configuration.GetSection(DiscoveryOptions.SectionName));
         services.Configure<OperationWorkerOptions>(configuration.GetSection(OperationWorkerOptions.SectionName));
 
+        services.AddInfoTrackHttpResilience(configuration);
+
         services.AddDbContext<InfoTrackDbContext>(options =>
             options.UseInMemoryDatabase("InfoTrackDb"));
 
         services.AddHttpClient<ISolicitorsScrapeClient, SolicitorsScrapeClient>((sp, client) =>
         {
-            var options = sp.GetRequiredService<IOptions<ScrapingOptions>>().Value;
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ScrapingOptions>>().Value;
             client.BaseAddress = new Uri(options.BaseUrl);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
             client.Timeout = Timeout.InfiniteTimeSpan;
         })
-        .AddStandardResilienceHandler()
-        .Configure((options, sp) =>
-        {
-            var scrapingOptions = sp.GetRequiredService<IOptions<ScrapingOptions>>().Value;
-            var resilience = scrapingOptions.Resilience;
-
-            options.Retry.MaxRetryAttempts = resilience.MaxRetryAttempts;
-            options.Retry.BackoffType = DelayBackoffType.Exponential;
-            options.Retry.UseJitter = true;
-            options.Retry.Delay = TimeSpan.FromMilliseconds(resilience.RetryDelayMilliseconds);
-            options.Retry.MaxDelay = TimeSpan.FromMilliseconds(resilience.MaxRetryDelayMilliseconds);
-
-            options.CircuitBreaker.FailureRatio = resilience.CircuitBreakerFailureRatio / 100d;
-            options.CircuitBreaker.MinimumThroughput = resilience.CircuitBreakerMinimumThroughput;
-            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(resilience.CircuitBreakerBreakDurationSeconds);
-            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(
-                Math.Max(scrapingOptions.RequestTimeoutSeconds * 2, 60));
-
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(scrapingOptions.RequestTimeoutSeconds);
-            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(
-                scrapingOptions.RequestTimeoutSeconds * (resilience.MaxRetryAttempts + 1));
-        });
+        .AddInfoTrackScrapingResilience();
 
         services.AddHttpClient<IDiscoveryProvider, SitemapDiscoveryProvider>((sp, client) =>
         {
-            var options = sp.GetRequiredService<IOptions<DiscoveryOptions>>().Value;
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<DiscoveryOptions>>().Value;
             client.BaseAddress = new Uri(options.BaseUrl);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(options.UserAgent);
             client.Timeout = Timeout.InfiniteTimeSpan;
         })
-        .AddStandardResilienceHandler()
-        .Configure((options, sp) =>
-        {
-            var discoveryOptions = sp.GetRequiredService<IOptions<DiscoveryOptions>>().Value;
-            var resilience = discoveryOptions.Resilience;
-
-            options.Retry.MaxRetryAttempts = resilience.MaxRetryAttempts;
-            options.Retry.BackoffType = DelayBackoffType.Exponential;
-            options.Retry.UseJitter = true;
-            options.Retry.Delay = TimeSpan.FromMilliseconds(resilience.RetryDelayMilliseconds);
-            options.Retry.MaxDelay = TimeSpan.FromMilliseconds(resilience.MaxRetryDelayMilliseconds);
-
-            options.CircuitBreaker.FailureRatio = resilience.CircuitBreakerFailureRatio / 100d;
-            options.CircuitBreaker.MinimumThroughput = resilience.CircuitBreakerMinimumThroughput;
-            options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(resilience.CircuitBreakerBreakDurationSeconds);
-            options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(
-                Math.Max(discoveryOptions.RequestTimeoutSeconds * 2, 60));
-
-            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(discoveryOptions.RequestTimeoutSeconds);
-            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(
-                discoveryOptions.RequestTimeoutSeconds * (resilience.MaxRetryAttempts + 1));
-        });
+        .AddInfoTrackDiscoveryResilience();
 
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<ISolicitorRepository, SolicitorRepository>();

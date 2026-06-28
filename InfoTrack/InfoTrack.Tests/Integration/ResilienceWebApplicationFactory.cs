@@ -1,4 +1,5 @@
 using InfoTrack.Infrastructure.Persistence;
+using InfoTrack.Tests.Resilience;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -7,17 +8,21 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Http;
 
 namespace InfoTrack.Tests.Integration;
 
-public sealed class IsolatedWebApplicationFactory : WebApplicationFactory<Program>
+public sealed class ResilienceWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _databaseName = $"InfoTrackTests-{Guid.NewGuid():N}";
+    private readonly string _databaseName = $"InfoTrackResilienceTests-{Guid.NewGuid():N}";
+
+    public StubHttpMessageHandlerBuilderFilter HandlerFilter { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureAppConfiguration((_, config) =>
         {
+            config.AddInMemoryCollection(ResilienceTestConfiguration.FastRetries);
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["RateLimiting:Enabled"] = "false",
@@ -31,6 +36,10 @@ public sealed class IsolatedWebApplicationFactory : WebApplicationFactory<Progra
 
             services.AddDbContext<InfoTrackDbContext>(options =>
                 options.UseInMemoryDatabase(_databaseName));
+
+            services.AddSingleton(HandlerFilter);
+            services.AddSingleton<IHttpMessageHandlerBuilderFilter>(sp =>
+                sp.GetRequiredService<StubHttpMessageHandlerBuilderFilter>());
         });
     }
 

@@ -1,5 +1,6 @@
 using InfoTrack.Domain.Scraping;
 using InfoTrack.Infrastructure.Options;
+using InfoTrack.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,7 +13,10 @@ public sealed class SolicitorsScrapeClient(
 {
     private readonly ScrapingOptions _options = options.Value;
 
-    public async Task<string> FetchLocationPageAsync(string locationSlug, CancellationToken cancellationToken = default)
+    public async Task<string> FetchLocationPageAsync(
+        string locationSlug,
+        Guid? operationId = null,
+        CancellationToken cancellationToken = default)
     {
         var slug = locationSlug.Trim().ToLowerInvariant();
         var path = _options.LocationPathTemplate.Replace("{location}", slug, StringComparison.OrdinalIgnoreCase);
@@ -20,8 +24,23 @@ public sealed class SolicitorsScrapeClient(
 
         logger.LogInformation("Fetching solicitor listings from {Uri}", requestUri);
 
-        using var response = await httpClient.GetAsync(requestUri, cancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        ApplyResilienceContext(request, operationId);
+
+        using var scope = ResilienceOperationContext.BeginScope(operationId);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync(cancellationToken);
+    }
+
+    internal static void ApplyResilienceContext(HttpRequestMessage request, Guid? operationId)
+    {
+        request.Options.Set(HttpRequestContextKeys.ClientName, ResiliencePipelineNames.Scraping);
+        request.Options.Set(HttpRequestContextKeys.OperationKind, "scrape");
+
+        if (operationId.HasValue)
+        {
+            request.Options.Set(HttpRequestContextKeys.OperationId, operationId);
+        }
     }
 }

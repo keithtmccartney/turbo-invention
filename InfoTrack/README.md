@@ -181,6 +181,46 @@ InfoTrack mirrors the successful [solicitors.com](https://www.solicitors.com/) c
 
 No HtmlAgilityPack or AngleSharp is used — parsing is intentionally manual.
 
+## HTTP resilience (Polly v8)
+
+All outbound HTTP traffic (sitemap discovery, solicitor scraping, and future integrations) flows through named **Polly v8** pipelines registered via `IHttpClientFactory`.
+
+### Pipeline strategies (outer → inner)
+
+| Strategy | Purpose |
+| -------- | ------- |
+| **Concurrency limiter** | Caps simultaneous outbound requests (`MaxConcurrentRequests`) |
+| **Outbound pacing** | Enforces minimum interval between requests (`RequestsPerSecond`) |
+| **Total request timeout** | End-to-end ceiling including retries |
+| **Retry** | Transient faults only; honours `Retry-After` on 429/503 |
+| **Circuit breaker** | Opens after sustained failure ratio; half-open recovery |
+| **Attempt timeout** | Per-try timeout (connect handled by `SocketsHttpHandler.ConnectTimeout`) |
+
+Configuration lives under `Resilience:Defaults` with optional `Resilience:Clients:{Scraping|Discovery}` overrides. Legacy `Scraping:Resilience` / `Discovery:Resilience` sections are merged for backward compatibility.
+
+Discovery and scrape UIs surface resilience progress (`WaitingForRateLimit`, `RetryingRequest`, `ContinuingAfterRetry`) via `IResilienceProgressNotifier`.
+
+Structured logs and `System.Diagnostics.Metrics` counters (`http.client.retries.total`, `http.client.circuit_breaker.transitions`, etc.) are emitted from `HttpResilienceTelemetry` for OpenTelemetry/Prometheus export.
+
+Implementation: `InfoTrack.Infrastructure/Resilience/`.
+
+## Inbound API rate limiting
+
+All `/api/*` routes are protected by ASP.NET Core **fixed-window, per-client-IP** rate limiters (honours `X-Forwarded-For` when present). Throttled callers receive **HTTP 429** with a **`Retry-After`** header and JSON problem body.
+
+| Policy | Routes | Default limit |
+| ------ | ------ | ------------- |
+| **api-reads** | GET endpoints (insights, results, discovery status, …) | 600 requests / 60s / IP |
+| **api-writes** | POST endpoints (scrape, discovery, locations, MCP, chat) | 30 requests / 60s / IP |
+
+Configuration: `RateLimiting` in `InfoTrack.Api/appsettings.json`. Set `RateLimiting:Enabled` to `false` to disable. Swagger is not rate-limited.
+
+JMeter abuse verification: [`JMeter/tests/jmeter/ApiAbuseTest.jmx`](JMeter/tests/jmeter/ApiAbuseTest.jmx) + `run-abuse-test.ps1` (run the API with a low `RateLimiting__ReadPermitLimit` first).
+
+## Load & smoke testing (JMeter)
+
+Lightweight JMeter plans live in [`JMeter/tests/jmeter/`](JMeter/tests/jmeter/). They cover API smoke checks, scrape concurrency, dashboard/insights read load, discovery, MCP authentication, and inbound **429** throttling. See that folder's README for prerequisites and run instructions.
+
 ## Intentionally overengineered: Analytics Engine
 
 The **Analytics Engine** is the deliberate "show-off" component, structured as an extractable microservice:
@@ -321,7 +361,7 @@ See the comment in `InfoTrack.Api/Program.cs` where the schema is created withou
 - **Local LLM dependency** — the Assistant **will not work** without a running OpenAI-compatible inference server (`LocalLlm:BaseUrl`); InfoTrack does not embed a model and returns **503** when the server is unreachable. [Qube](https://github.com/dagaza/Qube), LM Studio, Ollama, and other compatible hosts are supported. The Assistant page is only the chat UI — it is not a substitute for that server.
 - **InMemory database** — data is lost on restart; not suitable for production persistence.
 - **Live scraping** — depends on solicitors.com HTML structure; site changes may require parser updates.
-- **Rate limiting** — polite delay between requests; no retry/circuit-breaker policies (would add Polly in production).
+- **Outbound resilience** — Polly v8 pipelines with retry, circuit breaker, concurrency/rate pacing, and structured telemetry; no scheduled scrape/discovery jobs yet.
 - **Email addresses** — the source site exposes enquiry form links, not direct email addresses.
 - **Bradford / smaller cities** — some locations may return fewer listings depending on site coverage.
 - **Shared InMemory DB in tests** — integration tests use a single named in-memory store.
@@ -329,7 +369,6 @@ See the comment in `InfoTrack.Api/Program.cs` where the schema is created withou
 ## Future improvements
 
 - Replace InMemory with **SQL Server** + migrations
-- Add **Polly** resilience policies on `HttpClient`
 - Publish **`ScrapeCompleted`** integration events to Azure Service Bus
 - Extract analytics to a dedicated **microservice** with read-optimised projections
 - Add **OpenTelemetry** distributed tracing across API and analytics pipeline

@@ -140,7 +140,7 @@ public sealed class ScrapeOrchestrator(
 
                 try
                 {
-                    var html = await scrapeClient.FetchLocationPageAsync(location.Slug, cancellationToken);
+                    var html = await scrapeClient.FetchLocationPageAsync(location.Slug, operationId, cancellationToken);
                     var parsed = htmlParser.Parse(html, location.Name);
 
                     foreach (var listing in parsed)

@@ -2,6 +2,7 @@ using System.Text.Json;
 using InfoTrack.Api.Mcp.Authentication;
 using InfoTrack.Api.Mcp.JsonRpc;
 using InfoTrack.Api.Mcp.Services;
+using InfoTrack.Api.RateLimiting;
 using InfoTrack.Application.Mcp;
 using Microsoft.Extensions.Options;
 
@@ -17,13 +18,15 @@ public static class McpEndpointRouteBuilderExtensions
         group.MapPost("/", (HttpContext httpContext, McpJsonRpcDispatcher dispatcher, McpApiKeyValidator validator, IOptions<McpOptions> options, CancellationToken cancellationToken) =>
                 HandleJsonRpcAsync(httpContext, dispatcher, validator, options, cancellationToken))
             .WithName("McpJsonRpc")
-            .WithSummary("InfoTrack Model Context Protocol JSON-RPC endpoint.");
+            .WithSummary("InfoTrack Model Context Protocol JSON-RPC endpoint.")
+            .WithApiWriteRateLimit();
 
         group.MapGet("/tools", (IMcpToolRegistry registry) =>
                 Results.Ok(registry.GetDefinitions()))
             .WithName("McpListTools")
             .WithSummary("Lists InfoTrack MCP tools and JSON schemas.")
-            .AddEndpointFilter<McpAuthorizationFilter>();
+            .AddEndpointFilter<McpAuthorizationFilter>()
+            .WithApiReadRateLimit();
 
         group.MapPost("/assistant", async (
                 McpAssistantRequest request,
@@ -57,7 +60,8 @@ public static class McpEndpointRouteBuilderExtensions
             })
             .WithName("McpAssistant")
             .WithSummary("Domain-aware MCP assistant that can invoke InfoTrack tools.")
-            .AddEndpointFilter<McpAuthorizationFilter>();
+            .AddEndpointFilter<McpAuthorizationFilter>()
+            .WithApiWriteRateLimit();
 
         return group;
     }

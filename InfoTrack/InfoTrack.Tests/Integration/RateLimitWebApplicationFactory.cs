@@ -10,9 +10,9 @@ using Microsoft.Extensions.Hosting;
 
 namespace InfoTrack.Tests.Integration;
 
-public sealed class IsolatedWebApplicationFactory : WebApplicationFactory<Program>
+public sealed class RateLimitWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _databaseName = $"InfoTrackTests-{Guid.NewGuid():N}";
+    private readonly string _databaseName = $"InfoTrackRateLimitTests-{Guid.NewGuid():N}";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -20,7 +20,11 @@ public sealed class IsolatedWebApplicationFactory : WebApplicationFactory<Progra
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["RateLimiting:Enabled"] = "false",
+                ["RateLimiting:Enabled"] = "true",
+                ["RateLimiting:ReadPermitLimit"] = "5",
+                ["RateLimiting:ReadWindowSeconds"] = "60",
+                ["RateLimiting:WritePermitLimit"] = "3",
+                ["RateLimiting:WriteWindowSeconds"] = "60",
             });
         });
 
